@@ -20,11 +20,11 @@ function meanColor(image, x, y, w, h, bits) {
   return sum.map(v => Math.round(v / Math.max(1, count)));
 }
 
-function allTransparent(image, x, y, w, h) {
+function allTransparent(image, x, y, w, h, alphaThreshold = 0) {
   for (let yy = y; yy < y + h; yy++) {
     for (let xx = x; xx < x + w; xx++) {
       const i = (yy * image.width + xx) * 4 + 3;
-      if (image.data[i] !== 0) return false;
+      if (image.data[i] > alphaThreshold) return false;
     }
   }
   return true;
@@ -89,12 +89,12 @@ function fitGradient(image, r, axis, options) {
   return { model: { ...r, type: axis === 'x' ? 'gradient-x' : 'gradient-y', stops }, ...error };
 }
 
-function exactLeaf(image, r, bits, maxRegions) {
+function exactLeaf(image, r, bits, maxRegions, alphaThreshold = 0) {
   const regions = [];
   for (let yy = r.y; yy < r.y + r.h; yy++) {
     for (let xx = r.x; xx < r.x + r.w; xx++) {
       const color = quantPixel(image, xx, yy, bits);
-      if (color[3] === 0) continue;
+      if (color[3] <= alphaThreshold) continue;
       regions.push({ x: xx, y: yy, w: 1, h: 1, type: 'solid', color });
       if (regions.length > maxRegions) throw new Error('Adaptive encoder complexity limit exceeded');
     }
@@ -132,7 +132,7 @@ function coalesceSolids(regions) {
 }
 
 function recurse(image, r, depth, options, out) {
-  if (allTransparent(image, r.x, r.y, r.w, r.h)) return;
+  if (allTransparent(image, r.x, r.y, r.w, r.h, options.alphaThreshold)) return;
 
   const solid = fitSolid(image, r, options.bits);
   if (solid.max === 0 || (solid.rms <= options.modelTolerance && solid.max <= options.modelTolerance * 2.25)) {
@@ -152,7 +152,7 @@ function recurse(image, r, depth, options, out) {
   }
 
   if (depth >= options.maxDepth || (r.w <= options.minTile && r.h <= options.minTile)) {
-    const leaf = exactLeaf(image, r, options.bits, options.maxRegions);
+    const leaf = exactLeaf(image, r, options.bits, options.maxRegions, options.alphaThreshold);
     out.push(...leaf);
     if (out.length > options.maxRegions) throw new Error('Adaptive encoder complexity limit exceeded');
     return;
@@ -178,7 +178,8 @@ export function encodeTiles(image, {
   minTile = 2,
   maxDepth = 10,
   edgeThreshold = 96,
-  maxRegions = 5000
+  maxRegions = 5000,
+  alphaThreshold = 8
 } = {}) {
   const options = {
     precision,
@@ -187,7 +188,8 @@ export function encodeTiles(image, {
     minTile: Math.max(1, Math.round(minTile)),
     maxDepth: Math.max(1, Math.round(maxDepth)),
     edgeThreshold,
-    maxRegions: Math.max(1, Math.round(maxRegions))
+    maxRegions: Math.max(1, Math.round(maxRegions)),
+    alphaThreshold: Math.max(0, Math.min(64, Number(alphaThreshold) || 0))
   };
   const regions = [];
   recurse(image, { x: 0, y: 0, w: image.width, h: image.height }, 0, options, regions);

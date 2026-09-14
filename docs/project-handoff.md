@@ -1,4 +1,4 @@
-# RAGE Emblem Codec v0.1.1
+# RAGE Emblem Codec v0.1.5
 
 ## Project summary
 
@@ -80,7 +80,7 @@ RAGE takes that original concept considerably further.
 
 # High-level comparison
 
-| Capability | Emblem Helper 1.1 | RAGE v0.1.1 |
+| Capability | Emblem Helper 1.1 | RAGE v0.1.5 |
 |---|---|---|
 | Rows | Yes | Yes, upgraded |
 | Columns | Yes | Yes, upgraded |
@@ -103,7 +103,7 @@ RAGE takes that original concept considerably further.
 | Fast / Deep search | No | **Yes** |
 | Complexity fuse | No | **Yes** |
 | Benchmark harness | No | **Yes** |
-| Automated regression tests | No | **48 tests** |
+| Automated regression tests | No | **75 tests** |
 | Tauri desktop scaffold | No | **Yes** |
 
 ---
@@ -445,7 +445,7 @@ RAGE also evaluates **reconstruction quality**.
 
 Every candidate receives a quality score relative to the source.
 
-The current v0.1.1 scorer is an edge-weighted perceptual proxy rather than a simple raw-RGB mean squared error.
+The current v0.1.5 scorer is an edge-weighted, alpha-aware perceptual proxy with explicit transparent-leakage and directional-artifact penalties rather than a simple raw-RGB mean squared error.
 
 High-frequency edges receive more importance because small distortions around text and outlines are usually more noticeable than small errors inside flat areas.
 
@@ -686,14 +686,41 @@ because offsets or geometry were rounded during export.
 
 ---
 
+# 24.1. Segmented transparency and artifact guard (v0.1.5)
+
+Transparent artwork is no longer encoded as a full-width/full-height strip merely because one pixel in that strip is visible. RAGE now detects contiguous alpha-supported runs, pads each run by one sample by default to retain antialiasing, and emits separate SVG regions. Large transparent gaps therefore have **no SVG path at all** instead of relying on long gradients to remain perfectly transparent.
+
+The default Transparency Guard ignores isolated alpha values at or below 8/255 when discovering visible support. Adaptive tiles use the same threshold for fully transparent-region decisions.
+
+The quality metric also exposes two artifact diagnostics in addition to its normal reconstruction error:
+
+- **transparent leakage** — visible energy invented where the source is transparent;
+- **directional artifact** — coherent signed residuals aligned into horizontal or vertical streaks.
+
+These terms are included in candidate quality, so the optimizer rejects the vertical-melt / gray-needle failure mode based on what it actually renders rather than by applying a blanket tax to the column encoder.
+
+---
+
+# 24.2. Structural scanline guard (v0.1.5)
+
+The segmented-alpha work removed paths across empty background, but detailed artwork exposed a second failure mode: a row or column containing real content could still be approximated by one long high-tolerance gradient, and neighboring gradient strips could be approximately merged. That produced horizontal or vertical "melting" even when no transparency leak existed.
+
+v0.1.5 adds a separate structural reconstruction cap that is independent of the compression tolerance. A candidate may ask for aggressive gradient simplification, but if the resulting gradient exceeds the hard visible-error ceiling, the strip is recursively split at the worst-fitting sample and each local piece is fit independently. This keeps gradients cheap where the source is genuinely smooth while preventing a long scanline from painting through faces, hair, text, chains, armor, or similar non-gradient structure.
+
+Gradient strips now merge across neighboring rows/columns only when their serialized stop profiles are exactly identical. Approximate merging is retained only as a tiny last-resort allowance for nearly identical solid fills. Auto also removes merge tolerances above 2 and demotes High/severe artifact candidates as a class before comparing quality.
+
+The scheduler performs a targeted adaptive-tile probe before aggressive strip fallbacks so a clean 2D representation can compete without forcing Fast mode through the entire expensive tile search space. Deep mode still performs the exhaustive tile sweep.
+
+---
+
 # 25. Fast search mode
 
 Fast mode searches the highest-value candidate space while attempting to remain practical for normal usage.
 
-Its current near-lossless target is:
+Its current artifact-aware near-lossless target is:
 
 ```text
-99.995 / 100
+99.95 / 100
 ```
 
 Once a fitting candidate reaches that level, Fast mode can terminate because further candidate evaluation is unlikely to produce meaningful visible improvement.
@@ -728,17 +755,11 @@ This prevents one candidate family from monopolizing the search.
 
 ---
 
-# 28. Cheap candidates before expensive candidates
+# 28. Staged strip / tile scheduling
 
-Another performance issue appeared during the final audit.
+Search is staged instead of exhausting one encoder family in isolation. RAGE first tries the clean, low-tolerance strip levels, then runs a small adaptive-tile probe before the high-compression strip fallbacks. This ensures a 2D representation can compete before a risky 1D fallback consumes the remaining budget.
 
-Adaptive tiling could begin before inexpensive strip variants had been exhausted.
-
-This was inefficient because a near-perfect strip candidate may already satisfy the target.
-
-The scheduler now prioritizes inexpensive high-value strip candidates before invoking more expensive adaptive strategies.
-
-This dramatically reduced benchmark runtime.
+Fast/custom search keeps the probe intentionally small (useful tile tolerances, one non-redundant tile size, resolutions up to 256) so the UI stays responsive. Deep mode retains the exhaustive tile sweep after the strip fallbacks for users who explicitly choose maximum search depth.
 
 ---
 
@@ -931,7 +952,7 @@ The default benchmark uses:
 ```text
 256px synthetic reference image
 1,280,000-byte budget
-99.995 modern quality target
+99.95 modern quality target
 ```
 
 The parameters can be changed using:
@@ -965,7 +986,7 @@ Budget:
 ### Legacy-style result
 
 ```text
-Quality:      98.7819289
+Quality:      98.4486761
 Payload:      536,060 bytes
 Resolution:   256
 RGB:          4-bit
@@ -973,30 +994,29 @@ Orientation:  rows
 Layers:       207
 ```
 
-### RAGE v0.1.1 result
+### RAGE v0.1.5 result
 
 ```text
-Quality:      99.9995011
-Payload:      1,276,380 bytes
+Quality:      99.9537653
+Payload:      532,424 bytes
 Resolution:   256
 RGB:          8-bit
-Encoder:      optimized columns
-Layers:       227
+Encoder:      optimized rows
+Layers:       217
+Variant:      p5-g1-m0
 ```
 
 ### Difference
 
 ```text
 Quality improvement:
-+1.21757 points
++1.50509 points
 
-Remaining budget:
-3,620 bytes
+Payload difference vs legacy:
+-3,636 bytes
 ```
 
-The larger modern payload is intentional.
-
-There was unused byte budget available, so RAGE spent that budget preserving dramatically more image information.
+Under the stricter artifact-aware scorer, the modern search reaches its 99.95 Fast target while remaining slightly smaller than the legacy-style baseline.
 
 ---
 
@@ -1011,21 +1031,24 @@ Budget:
 ### Legacy-style result
 
 ```text
-Quality:      49.2731
-Payload:      114,220 bytes
+Quality:      50.4057668
+Payload:      116,928 bytes
 Resolution:   32
 RGB:          8-bit
 Orientation:  columns
+Layers:       31
 ```
 
-### RAGE result
+### RAGE v0.1.5 result
 
 ```text
-Quality:      50.7930
-Payload:      83,668 bytes
+Quality:      52.0602544
+Payload:      80,608 bytes
 Resolution:   32
 RGB:          8-bit
 Encoder:      optimized columns
+Layers:       31
+Variant:      p3-g0-m0
 ```
 
 In this constrained scenario RAGE was simultaneously:
@@ -1033,7 +1056,7 @@ In this constrained scenario RAGE was simultaneously:
 ```text
 higher quality
 AND
-30,552 bytes smaller
+36,320 bytes smaller
 ```
 
 than the legacy-style result.
@@ -1042,7 +1065,7 @@ than the legacy-style result.
 
 # 39. Independent SVG rendering validation
 
-The v0.1.1 audit included independent SVG rendering tests rather than trusting only the codec's own reconstruction model.
+Independent SVG rendering validation introduced during the v0.1.1 audit remains part of the v0.1.5 release discipline rather than trusting only the codec's own reconstruction model.
 
 Tests included:
 
@@ -1082,10 +1105,10 @@ Differences were limited to ordinary renderer rounding of at most approximately:
 
 # 40. Automated testing
 
-The audited v0.1.1 release currently contains:
+The audited v0.1.5 release currently contains:
 
 ```text
-48 passing tests
+71 passing tests
 ```
 
 The final release process included verification from a **fresh extraction of the generated ZIP**, not only from the development working directory.
@@ -1101,7 +1124,7 @@ This catches packaging mistakes such as:
 
 # Strict Rockstar compatibility mode
 
-RAGE v0.1.1 intentionally remains conservative regarding the SVG features sent to Rockstar.
+RAGE v0.1.5 intentionally remains conservative regarding the SVG features sent to Rockstar.
 
 Strict mode currently uses known-compatible concepts such as:
 
@@ -1126,7 +1149,7 @@ Compatibility is more important than shaving bytes using an unsupported trick.
 
 ---
 
-# What RAGE v0.1.1 does NOT claim yet
+# What RAGE does NOT claim yet
 
 The following should not be advertised as completed functionality.
 
@@ -1142,7 +1165,7 @@ Current RAGE uses its own edge-weighted perceptual proxy.
 
 Optional learned perceptual similarity scoring.
 
-Not currently part of v0.1.1.
+Not currently part of v0.1.5.
 
 ## AI saliency
 
@@ -1182,7 +1205,7 @@ adaptive raster-like regions
 
 inside one emblem.
 
-The architecture supports future work in this direction, but v0.1.1 does not yet include a general vector-tracing encoder.
+The architecture supports future work in this direction, but v0.1.5 does not yet include a general vector-tracing encoder.
 
 ## CUDA acceleration
 
@@ -1414,14 +1437,14 @@ The project should therefore preserve clear credit to the original technique whi
 
 # Current release status
 
-## v0.1.1
+## v0.1.5
 
 Current audited baseline.
 
 Verified:
 
 ```text
-48 / 48 automated tests passing
+75 / 75 automated tests passing
 static frontend build passing
 real 1,280,000-byte benchmark passing
 120,000-byte constrained benchmark passing

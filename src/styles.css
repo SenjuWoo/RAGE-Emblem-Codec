@@ -408,6 +408,11 @@ body.searching #progressBar {
   font-size: 10px;
 }
 .candidate-chip.fit { border-color: #3c5431; color: #cfeab8; }
+.candidate-chip.artifact { border-color: #6b562c; color: #f2cf86; }
+#artifactMetric[data-level="clean"] { color: var(--accent); }
+#artifactMetric[data-level="low"] { color: #cfeab8; }
+#artifactMetric[data-level="moderate"] { color: #f2cf86; }
+#artifactMetric[data-level="high"] { color: #ff8a7a; }
 .frontier-panel { overflow: hidden; }
 .frontier-chart {
   min-height: 170px;

@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a8ff3e?labelColor=0d0f11" alt="MIT License"></a>
-  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.3-53d7ff?labelColor=0d0f11" alt="v0.1.3"></a>
+  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.5-53d7ff?labelColor=0d0f11" alt="v0.1.5"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-8f9aa6?labelColor=0d0f11" alt="Node 20+">
 </p>
 
@@ -51,12 +51,15 @@ It grew out of [Emblem Helper 1.1 by Flashback-GTA](https://github.com/search?q=
 
 - Automatic maximum-quality search under a hard byte ceiling
 - Upgraded row / column strip encoder with real gradient fitting
+- Segmented-alpha strips: transparent gaps are omitted instead of being spanned by full-height/full-width paths
+- Transparency Guard + soft-edge padding to kill Social Club background needles without wrecking antialiasing
 - Adaptive rectangular tile encoder for flat vs detailed regions
 - Hard-edge protection so logos and text stay sharp
 - Premultiplied-alpha resampling (no colored transparency halos)
-- Edge-weighted perceptual scoring, Pareto frontier, Fast and Deep modes
+- Artifact-aware perceptual scoring: edge fidelity + transparent leakage + directional streak detection
+- Pareto frontier, Fast and Deep modes
 - Runtime request-size guard in the generated Social Club console code
-- 62 automated tests (codec, search, preview scaling, version / UI guards)
+- 75 automated tests (codec, artifact regressions, search, preview scaling, version / UI guards)
 - Local-first: artwork never needs to leave your machine
 - Tauri 2 desktop scaffold (optional; no fabricated Windows `.exe` is shipped)
 
@@ -94,24 +97,26 @@ Do not open `index.html` as a `file://` page. The worker and sample image need t
 
 Original is the 512×512 letterboxed reference the codec scores against. Encoded is the same 512×512 SVG the console snippet uploads; the card only *displays* it (a viewBox is added in the page, not in the Rockstar payload).
 
-Vertical scanlines mean the winner was a **column-strip** encode, usually below 512 working resolution. Those bands are in the SVG. The Social Club editor and in-game emblems rasterize that file, so they show — more on a large crew-page emblem, less on a tiny player-list icon. Advanced → **Strip direction → Rows only** forces the old Helper default and removes the vertical bands.
+v0.1.5 hardens both directions of the old scanline failure. Transparent gaps are still split into compact alpha-supported runs, but complex visible runs now have a separate structural-error ceiling: if a long row/column stops behaving like a real gradient, it is split into smaller local pieces instead of being smeared across the subject. Approximate gradient-to-gradient merging is disabled, and Auto demotes High-artifact candidates before comparing scalar quality.
+
+Advanced → **Transparency guard** controls how aggressively sub-visible alpha noise is discarded (Auto = 8/255), while **Soft-edge padding** keeps one neighboring sample by default so antialiased silhouettes still fade naturally. **Strip direction** remains available for diagnosis, but Auto no longer applies a blanket penalty to either orientation: rows and columns can both win when they remain structurally clean.
 
 ## Search modes
 
 | Mode | Behavior |
 | --- | --- |
-| **Fast** | High-value strip/tile space. Stops once a feasible candidate reaches `99.995 / 100`. |
+| **Fast** | High-value strip/tile space. Stops once an artifact-aware feasible candidate reaches `99.95 / 100`. |
 | **Deep** | No quality target. Continues until an exact reconstruction, exhaustion, or the candidate cap. |
 | **Auto precision** | Tries 5, then 4, then 3 decimal geometry. Transform scales keep at least 5 decimals so 512-strip emblems stay opaque. |
 
 ## Benchmarks
 
-Deterministic synthetic artwork, not a claim about every photo. Quality is the edge-weighted proxy (`100` = exact under that metric). Scorer unchanged from the first public benches.
+Deterministic synthetic artwork, not a claim about every photo. Quality is the v0.1.5 artifact-aware proxy (`100` = exact under that metric), so values are not directly comparable with pre-v0.1.5 benchmark scores.
 
 | Budget | Legacy-style | RAGE | Quality | Payload |
 | ---: | --- | --- | ---: | ---: |
-| 1,280,000 B | 98.782 @ 536,060 B | **99.9995 @ 1,276,380 B** | **+1.218** | +740,320 B |
-| 120,000 B | 53.634 @ 116,928 B | **55.210 @ 84,804 B** | **+1.577** | **−32,124 B** |
+| 1,280,000 B | 98.449 @ 536,060 B | **99.954 @ 532,424 B** | **+1.505** | **−3,636 B** |
+| 120,000 B | 50.406 @ 116,928 B | **52.060 @ 80,608 B** | **+1.654** | **−36,320 B** |
 
 At the real ceiling, spending leftover bytes is intentional. The objective is maximum quality under the cap, not the smallest file. Full JSON: [`docs/benchmark-results.md`](docs/benchmark-results.md).
 
@@ -168,7 +173,7 @@ Not enabled until proven against the live editor: `<use>`, arbitrary primitives,
 
 Verified in this tree:
 
-- 62 automated tests
+- 75 automated tests
 - static frontend build
 - 1,280,000-byte and 120,000-byte benchmarks
 - runtime request-size guard tests

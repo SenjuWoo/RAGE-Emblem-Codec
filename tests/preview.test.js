@@ -109,3 +109,38 @@ test('lossless column encode of a true vertical field is not punished', () => {
   const scored = scoreModels(ref, encoded.renderModel ?? encoded.model);
   assert.ok(scored.score > 99.9, `true vertical structure scored ${scored.score}`);
 });
+
+test('metric exposes and penalizes visible leakage into fully transparent background', () => {
+  const ref=imageFrom(16,16,()=>[0,0,0,0]);
+  const leaked={width:16,height:16,regions:[{x:7,y:0,w:1,h:16,type:'solid',color:[220,220,220,20]}]};
+  const s=scoreModels(ref,leaked);
+  assert.ok(s.transparentLeakage>0,'expected transparent leakage diagnostic');
+  assert.ok(s.artifactPenalty>0,'expected leakage to lower the final score');
+  assert.ok(s.score<s.baseScore,'artifact-aware score should be below raw reconstruction score');
+});
+
+test('metric detects coherent vertical residual streaks more strongly than isotropic checker noise', () => {
+  const ref=imageFrom(16,16,()=>[128,128,128,255]);
+  const stripes={width:16,height:16,regions:Array.from({length:16},(_,x)=>({
+    x,y:0,w:1,h:16,type:'solid',color:x%2?[136,136,136,255]:[120,120,120,255]
+  }))};
+  const checker={width:16,height:16,regions:Array.from({length:256},(_,i)=>{
+    const x=i%16,y=Math.floor(i/16),v=(x+y)%2?136:120;
+    return {x,y,w:1,h:1,type:'solid',color:[v,v,v,255]};
+  })};
+  const sv=scoreModels(ref,stripes);
+  const si=scoreModels(ref,checker);
+  assert.ok(sv.directionalArtifact>si.directionalArtifact*2,
+    `vertical ${sv.directionalArtifact} vs isotropic ${si.directionalArtifact}`);
+  assert.ok(sv.artifactPenalty>si.artifactPenalty,
+    `vertical penalty ${sv.artifactPenalty} vs isotropic ${si.artifactPenalty}`);
+});
+
+test('lossless reconstruction reports zero artifact diagnostics', () => {
+  const ref=imageFrom(8,8,(x,y)=>x<4?[20,20,20,255]:[220,220,220,255]);
+  const encoded=encodeStrips(ref,{orientation:'columns',precision:5,bits:8,gradientTolerance:0,mergeTolerance:0,alphaThreshold:8,alphaPad:1});
+  const s=scoreModels(ref,encoded.renderModel??encoded.model);
+  assert.ok(s.artifactPenalty<1e-5,`unexpected artifact penalty ${s.artifactPenalty}`);
+  assert.ok(s.directionalArtifact<1e-6,`unexpected directional artifact ${s.directionalArtifact}`);
+  assert.ok(s.transparentLeakage<1e-10,`unexpected leakage ${s.transparentLeakage}`);
+});

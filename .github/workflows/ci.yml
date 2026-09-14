@@ -64,13 +64,13 @@ jobs:
         env:
           SIZE: "256"
           BUDGET: "1280000"
-          QUALITY_TARGET: "99.995"
+          QUALITY_TARGET: "99.95"
       - name: Constrained budget
         run: npm run benchmark
         env:
           SIZE: "256"
           BUDGET: "120000"
-          QUALITY_TARGET: "99.995"
+          QUALITY_TARGET: "99.95"
 
   pages:
     name: GitHub Pages

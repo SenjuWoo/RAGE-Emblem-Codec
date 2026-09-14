@@ -87,6 +87,21 @@
           <label>Resize smoothing
             <select id="smoothing"><option value="true" selected>On</option><option value="false">Off</option></select>
           </label>
+          <label>Transparency guard
+            <select id="alphaThreshold">
+              <option value="8" selected>Auto · ignore ≤ 8 alpha</option>
+              <option value="16">Strong · ignore ≤ 16 alpha</option>
+              <option value="4">Light · ignore ≤ 4 alpha</option>
+              <option value="0">Off · preserve all alpha</option>
+            </select>
+          </label>
+          <label>Soft-edge padding
+            <select id="alphaPad">
+              <option value="1" selected>1 px · recommended</option>
+              <option value="0">0 px · hard cut</option>
+              <option value="2">2 px · softer edge</option>
+            </select>
+          </label>
           <label>Hard-edge threshold <output id="edgeOut">96</output>
             <input id="edgeThreshold" type="range" min="32" max="180" value="96" step="4">
           </label>
@@ -136,6 +151,7 @@
           <div><span>Working res.</span><strong id="resMetric">--</strong></div>
           <div><span>RGB depth</span><strong id="bitsMetric">--</strong></div>
           <div><span>Precision</span><strong id="precisionMetric">--</strong></div>
+          <div><span>Artifact guard</span><strong id="artifactMetric">--</strong></div>
         </div>
       </section>
 

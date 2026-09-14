@@ -26,3 +26,13 @@ test('encoded preview SVG is forced to fill the square stage', () => {
   assert.match(main, /withPreviewViewBox\(best\.result\.svg\)/);
   assert.match(main, /paintReferencePreview/);
 });
+
+test('UI exposes transparency guard and artifact diagnostics', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const main = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(html, /id="alphaThreshold"/);
+  assert.match(html, /id="alphaPad"/);
+  assert.match(html, /id="artifactMetric"/);
+  assert.match(main, /alphaThreshold:Number\(els\.alphaThreshold\.value\)/);
+  assert.match(main, /artifactMetric/);
+});

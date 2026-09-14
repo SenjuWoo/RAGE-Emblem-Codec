@@ -4,11 +4,13 @@ import { encodeTiles } from './tile-encoder.js';
 import { createMetricContext, scoreModels } from './metrics.js';
 import { chooseBestCandidate, paretoFrontier } from './optimizer.js';
 
-export const STRIP_LEVELS = [
-  [0,0],[1,0],[2,0],[4,0],[2,2],[6,0],[4,2],[8,2],
-  [18,2],
-  [12,3],[18,4],[28,6],[40,8]
+export const SAFE_STRIP_LEVELS = [
+  [0,0],[1,0],[2,0],[4,0],[6,0],[8,0]
 ];
+export const AGGRESSIVE_STRIP_LEVELS = [
+  [12,0],[18,0],[28,0],[40,0],[18,2]
+];
+export const STRIP_LEVELS = [...SAFE_STRIP_LEVELS, ...AGGRESSIVE_STRIP_LEVELS];
 const TILE_LEVELS = [0,2,4,6,10,16,24,36,52,72];
 
 function defaultsForPreset(preset, maxSize) {
@@ -38,6 +40,8 @@ export function searchImage(reference, options = {}, onProgress = null) {
     ? [5,4,3]
     : [Math.max(3, Math.min(5, Number(precisionOption) || 3))];
   const edgeThreshold = Number(options.edgeThreshold ?? 96);
+  const alphaThreshold = Math.max(0, Math.min(64, Number(options.alphaThreshold ?? 8)));
+  const alphaPad = Math.max(0, Math.min(3, Math.round(Number(options.alphaPad ?? 1))));
   const smoothing = options.smoothing ?? true;
   const maxRegions = Number(options.maxRegions ?? 4500);
   const metricSize = maxSourceSize;
@@ -55,7 +59,7 @@ export function searchImage(reference, options = {}, onProgress = null) {
   let hitCandidateLimit = false;
   let optimalFound = false;
   let targetReached = false;
-  const qualityTargetRaw = options.qualityTarget === undefined ? (preset === 'fast' ? 99.995 : null) : options.qualityTarget;
+  const qualityTargetRaw = options.qualityTarget === undefined ? (preset === 'fast' ? 99.95 : null) : options.qualityTarget;
   const qualityTarget = qualityTargetRaw == null ? null : Math.max(0, Math.min(100, Number(qualityTargetRaw)));
 
   const report = (candidate = null) => {
@@ -74,7 +78,12 @@ export function searchImage(reference, options = {}, onProgress = null) {
       bits: meta.bits,
       variant: meta.variant,
       quality: metric.score,
+      baseQuality: metric.baseScore,
       mse: metric.mse,
+      effectiveMse: metric.effectiveMse,
+      artifactPenalty: metric.artifactPenalty,
+      transparentLeakage: metric.transparentLeakage,
+      directionalArtifact: metric.directionalArtifact,
       payloadBytes: result.payload.estimatedRequestBytes,
       base64DataBytes: result.payload.base64DataBytes,
       layers: result.stats.layers,
@@ -88,7 +97,8 @@ export function searchImage(reference, options = {}, onProgress = null) {
     }
     evaluated++;
     const feasibleCandidate = candidate.payloadBytes <= effectiveBudget;
-    if (feasibleCandidate && qualityTarget != null && Number.isFinite(qualityTarget) && metric.score >= qualityTarget) {
+    const artifactSafe = metric.artifactPenalty < 0.5;
+    if (feasibleCandidate && artifactSafe && qualityTarget != null && Number.isFinite(qualityTarget) && metric.score >= qualityTarget) {
       targetReached = true;
       stopped = true;
     } else if (feasibleCandidate && metric.mse < 1e-12) {
@@ -104,23 +114,19 @@ export function searchImage(reference, options = {}, onProgress = null) {
 
   const stripDone = new Set();
   const tileDone = new Set();
-  const tileSizes = preset === 'deep' ? [1,2,4] : [2,4];
+  const tileSizes = preset === 'deep' ? [1,2] : [2];
   const orientations = (options.stripOrientations?.length
     ? options.stripOrientations
     : ['rows', 'columns']
   ).filter(o => o === 'rows' || o === 'columns');
   const stripOrientations = orientations.length ? orientations : ['rows', 'columns'];
 
-  // Colour depth is outer: once 8-bit already fits, 4-bit posterization must not
-  // outrank it on a metric that under-penalizes banding. Within a bit depth,
-  // sweep every resolution before another compression level so a cap cannot
-  // burn entirely on one size.
-  if (families.includes('strips')) {
+  const runStripLevels = (levels) => {
+    if (stopped || !families.includes('strips')) return;
     bitOuter:
     for (const bits of bitDepths) {
       if (bestFull && (bestFull.bits ?? 8) > bits) break bitOuter;
-      for (let level = 0; level < STRIP_LEVELS.length; level++) {
-        const [gradientTolerance, mergeTolerance] = STRIP_LEVELS[level];
+      for (const [gradientTolerance, mergeTolerance] of levels) {
         for (const precision of precisions) {
           for (const orientation of stripOrientations) {
             for (const resolution of resolutions) {
@@ -130,12 +136,17 @@ export function searchImage(reference, options = {}, onProgress = null) {
               const img = imageFor(resolution);
               const result = encodeStrips(img, {
                 orientation, precision, bits, gradientTolerance, mergeTolerance,
-                preserveEdges: true, edgeThreshold
+                preserveEdges: true, edgeThreshold, alphaThreshold, alphaPad,
+                maxGradientError: Number(options.maxGradientError ?? 18)
               });
               const c = evaluate(result, {
                 encoder: `strips-${orientation}`, resolution, bits,
                 variant: `p${precision}-g${gradientTolerance}-m${mergeTolerance}`,
-                settings: { orientation, precision, bits, gradientTolerance, mergeTolerance, edgeThreshold }
+                settings: {
+                  orientation, precision, bits, gradientTolerance, mergeTolerance,
+                  edgeThreshold, alphaThreshold, alphaPad,
+                  maxGradientError: Number(options.maxGradientError ?? 18)
+                }
               });
               if (c && c.payloadBytes <= effectiveBudget) stripDone.add(key);
             }
@@ -143,18 +154,17 @@ export function searchImage(reference, options = {}, onProgress = null) {
         }
       }
     }
-  }
+  };
 
-  // Adaptive tiling is more expensive, so only search it after the strip baseline.
-  if (!stopped && families.includes('tiles')) {
+  const runTiles = ({ levels = TILE_LEVELS, allowedResolutions = resolutions, allowedTileSizes = tileSizes } = {}) => {
+    if (stopped || !families.includes('tiles')) return;
     tileOuter:
     for (const bits of bitDepths) {
       if (bestFull && (bestFull.bits ?? 8) > bits) break tileOuter;
-      for (let level = 0; level < TILE_LEVELS.length; level++) {
-        const modelTolerance = TILE_LEVELS[level];
+      for (const modelTolerance of levels) {
         for (const precision of precisions) {
-          for (const minTile of tileSizes) {
-            for (const resolution of resolutions) {
+          for (const minTile of allowedTileSizes) {
+            for (const resolution of allowedResolutions) {
               if (stopped) break tileOuter;
               const key = `${resolution}:${bits}:${precision}:${minTile}`;
               if (tileDone.has(key)) continue;
@@ -163,7 +173,7 @@ export function searchImage(reference, options = {}, onProgress = null) {
               try {
                 result = encodeTiles(img, {
                   precision, bits, modelTolerance, minTile,
-                  maxDepth: 14, edgeThreshold, maxRegions
+                  maxDepth: 14, edgeThreshold, maxRegions, alphaThreshold
                 });
               } catch (error) {
                 if (/complexity limit/i.test(String(error?.message))) {
@@ -178,7 +188,7 @@ export function searchImage(reference, options = {}, onProgress = null) {
               const c = evaluate(result, {
                 encoder: 'adaptive-tiles', resolution, bits,
                 variant: `p${precision}-t${modelTolerance}-min${minTile}`,
-                settings: { precision, bits, modelTolerance, minTile, edgeThreshold, maxRegions }
+                settings: { precision, bits, modelTolerance, minTile, edgeThreshold, maxRegions, alphaThreshold }
               });
               if (c && c.payloadBytes <= effectiveBudget) tileDone.add(key);
             }
@@ -186,7 +196,22 @@ export function searchImage(reference, options = {}, onProgress = null) {
         }
       }
     }
-  }
+  };
+
+  // Search clean strip representations first, then run a small 2D tile probe
+  // before the high-compression 1D fallbacks. The probe prevents strip artifacts
+  // from monopolizing Auto without paying the cost of a full tile sweep up front.
+  runStripLevels(SAFE_STRIP_LEVELS);
+  const probeResolutions = resolutions.filter(r => r <= 256);
+  runTiles({
+    levels: [10,16,24,36],
+    allowedResolutions: probeResolutions.length ? probeResolutions : resolutions.slice(-1),
+    allowedTileSizes: [2]
+  });
+  runStripLevels(AGGRESSIVE_STRIP_LEVELS);
+  // Deep mode remains the exhaustive path. Fast/custom already sampled the most
+  // useful tile operating points and avoids hundreds of redundant expensive fits.
+  if (preset === 'deep') runTiles();
 
   const best = bestFull;
   const feasible = candidates.filter(c => c.payloadBytes <= effectiveBudget);

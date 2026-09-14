@@ -1,23 +1,23 @@
-# Synthetic codec benchmark — v0.1.1
+# Synthetic codec benchmark — v0.1.5
 
-These are deterministic synthetic tests, not a claim about every emblem. They verify that the audited optimizer improves reconstruction quality over an Emblem Helper 1.1-style strip baseline under the same request budget. Quality is the v0.1.1 edge-weighted perceptual proxy, where 100 is exact under that metric.
+These are deterministic synthetic tests, not a claim about every emblem. They verify that the current optimizer improves reconstruction quality over an Emblem Helper 1.1-style strip baseline under the same request budget. v0.1.5 uses an **artifact-aware** quality proxy: edge-weighted reconstruction error plus explicit penalties for transparent-background leakage and coherent directional streaking. `100` is exact under that metric. Scores are therefore not directly comparable with older pre-v0.1.5 benchmark numbers.
 
-| Budget | Legacy-style winner | RAGE v0.1.1 winner | Quality gain | Payload delta |
+| Budget | Legacy-style winner | RAGE v0.1.5 winner | Quality gain | Payload delta |
 | ---: | --- | --- | ---: | ---: |
-| 120,000 B | 53.634 @ 116,928 B (32px, 8-bit, columns) | 55.210 @ 84,804 B (32px, 8-bit, optimized columns) | +1.577 | -32,124 B |
-| 1,280,000 B | 98.782 @ 536,060 B (256px, 4-bit, rows) | 99.9995 @ 1,276,380 B (256px, 8-bit, optimized columns) | +1.218 | +740,320 B |
+| 120,000 B | 50.406 @ 116,928 B (32px, 8-bit, columns) | **52.060 @ 80,608 B** (32px, 8-bit, segmented columns) | **+1.654** | **−36,320 B** |
+| 1,280,000 B | 98.449 @ 536,060 B (256px, 4-bit, rows) | **99.954 @ 532,424 B** (256px, 8-bit, segmented rows) | **+1.505** | **−3,636 B** |
 
-The payload delta is `RAGE - legacy`. At the real ceiling, using more of the available budget is intentional: the objective is maximum quality while remaining under the ceiling, not minimum byte count. Under the starved 120 KB budget, the optimized representation is both smaller and higher scoring.
+The payload delta is `RAGE - legacy`. The benchmark now stops at `99.95` because the stricter artifact-aware scorer intentionally charges for directional and alpha-leak artifacts that the older metric largely ignored. Deep mode remains available when you want to keep searching beyond that practical near-lossless threshold.
 
 ## Actual 1,280,000-byte run
 
 ```json
 {
   "budget": 1280000,
-  "qualityTarget": 99.995,
+  "qualityTarget": 99.95,
   "legacy": {
     "id": "256-4-rows",
-    "quality": 98.78192892554056,
+    "quality": 98.44867608558475,
     "payloadBytes": 536060,
     "res": 256,
     "bits": 4,
@@ -25,32 +25,30 @@ The payload delta is `RAGE - legacy`. At the real ceiling, using more of the ava
     "layers": 207
   },
   "modern": {
-    "id": "strips-columns-256-8-p4-g0-m0-28",
-    "quality": 99.99950114800436,
-    "payloadBytes": 1276380,
-    "encoder": "strips-columns",
+    "id": "strips-rows-256-8-p5-g1-m0-30",
+    "quality": 99.95376526772927,
+    "payloadBytes": 532424,
+    "encoder": "strips-rows",
     "resolution": 256,
     "bits": 8,
-    "layers": 227,
-    "variant": "p4-g0-m0"
+    "layers": 217,
+    "variant": "p5-g1-m0"
   },
-  "qualityGain": 1.2175722224638008,
-  "payloadDeltaVsLegacy": 740320,
-  "evaluated": 29
+  "qualityGain": 1.5050891821445163,
+  "payloadDeltaVsLegacy": -3636,
+  "evaluated": 31
 }
 ```
 
 ## Constrained 120,000-byte run
 
-256px synthetic source. The starved budget forces the search down to 32px.
-
 ```json
 {
   "budget": 120000,
-  "qualityTarget": 99.995,
+  "qualityTarget": 99.95,
   "legacy": {
     "id": "32-8-columns",
-    "quality": 53.63370927008253,
+    "quality": 50.40576683719276,
     "payloadBytes": 116928,
     "res": 32,
     "bits": 8,
@@ -58,19 +56,19 @@ The payload delta is `RAGE - legacy`. At the real ceiling, using more of the ava
     "layers": 31
   },
   "modern": {
-    "id": "strips-columns-32-8-p3-g0-m0-69",
-    "quality": 55.21023528418797,
-    "payloadBytes": 84804,
+    "id": "strips-columns-32-8-p3-g0-m0-29",
+    "quality": 52.060254445626995,
+    "payloadBytes": 80608,
     "encoder": "strips-columns",
     "resolution": 32,
     "bits": 8,
     "layers": 31,
     "variant": "p3-g0-m0"
   },
-  "qualityGain": 1.576526014105447,
-  "payloadDeltaVsLegacy": -32124,
+  "qualityGain": 1.6544876084342377,
+  "payloadDeltaVsLegacy": -36320,
   "evaluated": 240
 }
 ```
 
-Run the real-ceiling benchmark with `npm run benchmark`. The modern benchmark target is 99.995 by default so the release check terminates once it has a near-lossless fitting candidate; set `QUALITY_TARGET=100` for a much more expensive search that will only stop on an exact metric reconstruction or the candidate cap.
+Run the real-ceiling benchmark with `npm run benchmark`. Override `SIZE`, `BUDGET`, or `QUALITY_TARGET` for custom stress runs. `QUALITY_TARGET=100` can be dramatically more expensive because it only stops on an exact metric reconstruction or the candidate cap.

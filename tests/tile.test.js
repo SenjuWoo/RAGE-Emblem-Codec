@@ -31,3 +31,12 @@ test('adaptive tile encoder stops pathological region explosions', () => {
   const img=imageFrom(32,32,(x,y)=>((x+y)&1)?[255,0,255,255]:[0,255,0,255]);
   assert.throws(() => encodeTiles(img,{precision:3,bits:8,modelTolerance:0,minTile:1,maxDepth:12,edgeThreshold:80,maxRegions:8}), /complexity limit/i);
 });
+
+test('adaptive tile encoder drops isolated sub-threshold alpha noise', () => {
+  const d=new Uint8ClampedArray(8*8*4);
+  d.set([255,255,255,4],(3*8+3)*4);
+  const img=makeImage(8,8,d);
+  const r=encodeTiles(img,{precision:5,bits:8,modelTolerance:0,minTile:1,maxDepth:8,maxRegions:500,alphaThreshold:8});
+  assert.equal(r.stats.layers,0);
+  assert.equal(r.model.regions.length,0);
+});

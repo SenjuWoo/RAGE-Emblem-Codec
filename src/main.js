@@ -6,9 +6,9 @@ import { VERSION } from './version.js';
 
 const $ = id => document.getElementById(id);
 const els = Object.fromEntries([
-  'importBtn','sampleBtn','fileInput','dropZone','fileMeta','runBtn','cancelBtn','budget','reserve','useStrips','useTiles','stripOrientation','precision','smoothing','edgeThreshold','edgeOut','maxRegions',
+  'importBtn','sampleBtn','fileInput','dropZone','fileMeta','runBtn','cancelBtn','budget','reserve','useStrips','useTiles','stripOrientation','precision','smoothing','alphaThreshold','alphaPad','edgeThreshold','edgeOut','maxRegions',
   'sourceCanvas','sourceEmpty','encodedSvg','encodedEmpty','encodedTag','runStatus','progressPct','progressBar','candidateLog','frontierChart',
-  'scoreRing','qualityScore','payloadMetric','budgetMetric','layersMetric','encoderMetric','resMetric','bitsMetric','precisionMetric','generateBtn','copyBtn','svgBtn','reportBtn','consoleCode',
+  'scoreRing','qualityScore','payloadMetric','budgetMetric','layersMetric','encoderMetric','resMetric','bitsMetric','precisionMetric','artifactMetric','generateBtn','copyBtn','svgBtn','reportBtn','consoleCode',
   'toast','appVersion'
 ].map(id=>[id,$(id)]));
 
@@ -52,7 +52,8 @@ function resetResult() {
   els.encodedTag.textContent = 'Waiting';
   els.qualityScore.textContent = '--';
   els.scoreRing.style.setProperty('--score', 0);
-  for (const id of ['payloadMetric','budgetMetric','layersMetric','encoderMetric','resMetric','bitsMetric','precisionMetric']) els[id].textContent='--';
+  for (const id of ['payloadMetric','budgetMetric','layersMetric','encoderMetric','resMetric','bitsMetric','precisionMetric','artifactMetric']) els[id].textContent='--';
+  if (els.artifactMetric) delete els.artifactMetric.dataset.level;
   for (const b of [els.generateBtn,els.copyBtn,els.svgBtn,els.reportBtn]) b.disabled=true;
   els.consoleCode.value='';
   els.frontierChart.innerHTML='<span>Run an optimization to build the frontier.</span>';
@@ -121,6 +122,8 @@ function searchOptions() {
       : ['rows', 'columns'],
     precision:els.precision.value === 'auto' ? 'auto' : Number(els.precision.value),
     smoothing:els.smoothing.value === 'true',
+    alphaThreshold:Number(els.alphaThreshold.value),
+    alphaPad:Number(els.alphaPad.value),
     edgeThreshold:Number(els.edgeThreshold.value),
     maxRegions:Number(els.maxRegions.value) || 4500
   };
@@ -129,7 +132,11 @@ function searchOptions() {
 function candidateChip(c, effectiveBudget) {
   if (!c || c.skipped || !Number.isFinite(c.quality) || !Number.isFinite(c.payloadBytes)) return '';
   const fit = c.payloadBytes <= effectiveBudget;
-  return `<div class="candidate-chip ${fit?'fit':''}" title="${c.variant}">${c.encoder} · ${c.resolution}px · ${c.bits}b · ${c.quality.toFixed(2)} · ${Math.round(c.payloadBytes/1000)}k</div>`;
+  const artifact = Number(c.artifactPenalty ?? 0);
+  const artifactClass = artifact >= 0.15 ? 'artifact' : '';
+  const warning = artifact >= 0.15 ? '⚠ ' : '';
+  const title = `${c.variant} · artifact penalty ${artifact.toFixed(3)}`;
+  return `<div class="candidate-chip ${fit?'fit':''} ${artifactClass}" title="${title}">${warning}${c.encoder} · ${c.resolution}px · ${c.bits}b · ${c.quality.toFixed(2)} · ${Math.round(c.payloadBytes/1000)}k</div>`;
 }
 
 function onProgress(p, opts) {
@@ -182,6 +189,13 @@ function showBest(result, opts) {
   els.resMetric.textContent=`${best.resolution} × ${best.resolution}`;
   els.bitsMetric.textContent=`${best.bits}-bit RGB`;
   els.precisionMetric.textContent=`${best.settings?.precision ?? '?'} decimals`;
+  const artifactPenalty=Number(best.artifactPenalty ?? 0);
+  const leakage=Number(best.transparentLeakage ?? 0);
+  const directional=Number(best.directionalArtifact ?? 0);
+  const artifactLevel=artifactPenalty < 0.02 ? 'clean' : artifactPenalty < 0.15 ? 'low' : artifactPenalty < 0.5 ? 'moderate' : 'high';
+  els.artifactMetric.textContent=artifactLevel[0].toUpperCase()+artifactLevel.slice(1);
+  els.artifactMetric.dataset.level=artifactLevel;
+  els.artifactMetric.title=`quality penalty ${artifactPenalty.toFixed(4)} · alpha leak ${leakage.toExponential(2)} · directional ${directional.toExponential(2)}`;
   els.generateBtn.disabled=false; els.svgBtn.disabled=false; els.reportBtn.disabled=false;
   renderFrontier(result.frontier,result.effectiveBudget);
 }
@@ -276,7 +290,7 @@ els.reportBtn.onclick=()=>{
   if(!best||!lastSearch)return;
   const report={
     generatedAt:new Date().toISOString(), version:VERSION, budget:lastSearch.budget, reserve:lastSearch.reserve, effectiveBudget:lastSearch.effectiveBudget,
-    winner:{id:best.id,encoder:best.encoder,resolution:best.resolution,bits:best.bits,variant:best.variant,quality:best.quality,mse:best.mse,payloadBytes:best.payloadBytes,base64DataBytes:best.base64DataBytes,layers:best.layers,settings:best.settings,payload:best.result.payload},
+    winner:{id:best.id,encoder:best.encoder,resolution:best.resolution,bits:best.bits,variant:best.variant,quality:best.quality,baseQuality:best.baseQuality,mse:best.mse,effectiveMse:best.effectiveMse,artifactPenalty:best.artifactPenalty,transparentLeakage:best.transparentLeakage,directionalArtifact:best.directionalArtifact,payloadBytes:best.payloadBytes,base64DataBytes:best.base64DataBytes,layers:best.layers,settings:best.settings,payload:best.result.payload},
     frontier:lastSearch.frontier
   };
   download('rage-emblem-report.json',JSON.stringify(report,null,2),'application/json');

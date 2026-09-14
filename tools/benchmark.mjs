@@ -27,7 +27,7 @@ function synthetic(size=128){
 const size=Number(process.env.SIZE||256);
 const reference=synthetic(size);
 const budget=Number(process.env.BUDGET||1280000);
-const qualityTarget=Number(process.env.QUALITY_TARGET||99.995);
+const qualityTarget=Number(process.env.QUALITY_TARGET||99.95);
 const ctx=createMetricContext(reference);
 const legacy=[];
 const resolutions=size<=128?[32,64,96,128]:size<=256?[32,64,128,192,256]:[64,128,256,384,512];

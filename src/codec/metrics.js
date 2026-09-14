@@ -99,24 +99,75 @@ export function scoreModels(reference, model, { edgeWeight = 2.5, context = null
   const ctx = context ?? createMetricContext(reference, { edgeWeight });
   if (ctx.width !== reference.width || ctx.height !== reference.height) throw new Error('Metric context size mismatch');
   const rendered = rasterizeModel(model, reference.width, reference.height);
+  const pixelCount = reference.width * reference.height;
+  const signedResidual = new Float32Array(pixelCount);
   let weightedError = 0;
   let weightTotal = 0;
+  let leakageEnergy = 0;
+
   for (let y = 0; y < reference.height; y++) {
     for (let x = 0; x < reference.width; x++) {
-      const ai = (y * reference.width + x) * 4;
+      const pi = y * reference.width + x;
+      const ai = pi * 4;
       const bi = (y * rendered.width + x) * 4;
       const aa = ctx.linear[ai + 3];
       const ar = ctx.linear[ai] * aa, ag = ctx.linear[ai + 1] * aa, ab = ctx.linear[ai + 2] * aa;
       const ba = rendered.data[bi + 3] / 255;
-      const br = srgbToLinear(rendered.data[bi]) * ba, bg = srgbToLinear(rendered.data[bi + 1]) * ba, bb = srgbToLinear(rendered.data[bi + 2]) * ba;
+      const br = srgbToLinear(rendered.data[bi]) * ba;
+      const bg = srgbToLinear(rendered.data[bi + 1]) * ba;
+      const bb = srgbToLinear(rendered.data[bi + 2]) * ba;
       const rgb = 0.22 * (ar - br) ** 2 + 0.62 * (ag - bg) ** 2 + 0.16 * (ab - bb) ** 2;
       const alpha = (aa - ba) ** 2;
-      const w = ctx.weights[y * reference.width + x];
+      const w = ctx.weights[pi];
       weightedError += w * (rgb + 0.8 * alpha);
       weightTotal += w;
+
+      const refLum = 0.2126 * ar + 0.7152 * ag + 0.0722 * ab;
+      const outLum = 0.2126 * br + 0.7152 * bg + 0.0722 * bb;
+      // Keep the sign. A column of alternating positive/negative luminance error
+      // is exactly the scanline/melting failure a scalar MSE tends to hide.
+      signedResidual[pi] = (outLum - refLum) + 0.28 * (ba - aa);
+
+      // Any visible energy invented where the reference is truly transparent is
+      // disproportionately objectionable on Social Club's dark preview. Use a
+      // linear term so faint 1px needles are not washed out by squared-error MSE.
+      if (aa <= 1 / 255 && ba > aa) {
+        leakageEnergy += 0.65 * Math.max(0, outLum) + 0.35 * (ba - aa);
+      }
     }
   }
+
+  let gx = 0, gy = 0, nx = 0, ny = 0;
+  for (let y = 0; y < reference.height; y++) {
+    for (let x = 0; x < reference.width; x++) {
+      const i = y * reference.width + x;
+      if (x + 1 < reference.width) { gx += Math.abs(signedResidual[i + 1] - signedResidual[i]); nx++; }
+      if (y + 1 < reference.height) { gy += Math.abs(signedResidual[i + reference.width] - signedResidual[i]); ny++; }
+    }
+  }
+  const gxMean = gx / Math.max(1, nx);
+  const gyMean = gy / Math.max(1, ny);
+  const directionalArtifact = Math.abs(gxMean - gyMean);
+  const transparentLeakage = leakageEnergy / Math.max(1, pixelCount);
+
   const mse = weightedError / Math.max(1e-12, weightTotal);
-  const score = 100 / (1 + 18 * mse);
-  return { score, mse };
+  // These are deliberately linear artifact terms. Directional streaks and faint
+  // alpha leakage remain obvious to humans even when their contribution to MSE
+  // is numerically tiny.
+  const artifactMse = 0.7 * transparentLeakage + 0.32 * directionalArtifact;
+  const effectiveMse = mse + artifactMse;
+  const baseScore = 100 / (1 + 18 * mse);
+  const score = 100 / (1 + 18 * effectiveMse);
+  const artifactPenalty = Math.max(0, baseScore - score);
+  return {
+    score,
+    baseScore,
+    mse,
+    effectiveMse,
+    artifactPenalty,
+    transparentLeakage,
+    directionalArtifact,
+    directionalX: gxMean,
+    directionalY: gyMean
+  };
 }

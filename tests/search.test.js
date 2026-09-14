@@ -10,6 +10,12 @@ function solid(w,h,c) {
   return makeImage(w,h,d);
 }
 
+function imageFrom(w,h,fn) {
+  const d=new Uint8ClampedArray(w*h*4);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) d.set(fn(x,y),(y*w+x)*4);
+  return makeImage(w,h,d);
+}
+
 test('resizeImage preserves a solid image and requested dimensions',()=>{
   const r=resizeImage(solid(4,4,[20,40,60,255]),8,true);
   assert.equal(r.width,8); assert.equal(r.height,8);
@@ -78,12 +84,9 @@ test('search does not descend to 4-bit after an 8-bit candidate already fits', (
   assert.equal(result.best.bits, 8);
 });
 
-test('strip levels try high-tolerance merge-2 before merge-3 so row tearing is a last resort', () => {
-  const merge2 = STRIP_LEVELS.findIndex(([g, m]) => g === 18 && m === 2);
-  const merge3 = STRIP_LEVELS.findIndex(([, m]) => m >= 3);
-  assert.ok(merge2 >= 0, 'missing [18,2] strip level');
-  assert.ok(merge3 >= 0);
-  assert.ok(merge2 < merge3, 'merge-2 at g18 must run before merge-3');
+test('strip search never uses dangerous cross-scanline merge tolerances above 2', () => {
+  assert.ok(STRIP_LEVELS.some(([g,m])=>g===18&&m===2),'expected a tiny merge-2 last-resort level');
+  assert.equal(STRIP_LEVELS.some(([,m])=>m>2),false,'merge tolerances above 2 can create scanline bands');
 });
 
 test('fast preset does not include 4-bit RGB in the default sweep', () => {
@@ -114,8 +117,43 @@ test('stripOrientations rows-only never evaluates column strips', () => {
 test('fast preset uses a near-lossless default target while deep remains untargeted', () => {
   const image=solid(32,32,[80,120,160,255]);
   const fast=searchImage(image,{preset:'fast',budget:1280000,reserve:0,precision:3,encoderFamilies:['strips','tiles'],bits:[8],resolutions:[32],maxCandidates:300});
-  assert.equal(fast.qualityTarget,99.995);
+  assert.equal(fast.qualityTarget,99.95);
   assert.equal(fast.targetReached,true);
   const deep=searchImage(image,{preset:'deep',budget:1280000,reserve:0,precision:3,encoderFamilies:['strips','tiles'],bits:[8],resolutions:[32],maxCandidates:300});
   assert.equal(deep.qualityTarget,null);
+});
+
+test('search candidates expose artifact diagnostics and transparency guard settings', () => {
+  const d=new Uint8ClampedArray(16*16*4);
+  for(let y=4;y<12;y++) for(let x=5;x<11;x++) d.set([220,220,220,255],(y*16+x)*4);
+  d.set([255,255,255,4],(2*16+8)*4); // isolated alpha noise that should be ignored by guard
+  const image=makeImage(16,16,d);
+  const result=searchImage(image,{
+    preset:'custom',budget:1280000,reserve:0,resolutions:[16],bits:[8],
+    encoderFamilies:['strips'],stripOrientations:['columns'],precision:5,
+    alphaThreshold:8,alphaPad:1,maxCandidates:2,qualityTarget:null
+  });
+  assert.ok(result.candidates.length);
+  const c=result.candidates[0];
+  for(const key of ['baseQuality','artifactPenalty','transparentLeakage','directionalArtifact']) {
+    assert.ok(Number.isFinite(c[key]),`missing numeric ${key}`);
+  }
+  assert.equal(c.settings.alphaThreshold,8);
+  assert.equal(c.settings.alphaPad,1);
+});
+
+test('adaptive tiles are evaluated before aggressive strip compression levels',()=>{
+  const img=imageFrom(16,16,(x,y)=>{
+    const v=(x*19+y*23+(x*y)%37)%256;
+    return [v,(v*3)%256,(255-v),255];
+  });
+  const r=searchImage(img,{
+    preset:'custom',budget:18000,reserve:0,resolutions:[16],bits:[8],
+    encoderFamilies:['strips','tiles'],precision:5,maxCandidates:80,qualityTarget:null,maxRegions:2000
+  });
+  const tileIndex=r.candidates.findIndex(c=>c.encoder==='adaptive-tiles');
+  const aggressiveIndex=r.candidates.findIndex(c=>/^p5-g(?:18|28|40)-/.test(c.variant));
+  assert.ok(tileIndex>=0,'expected adaptive tile candidates');
+  assert.ok(aggressiveIndex>=0,'expected aggressive strip candidates');
+  assert.ok(tileIndex<aggressiveIndex,`tile index ${tileIndex} should precede aggressive strip index ${aggressiveIndex}`);
 });

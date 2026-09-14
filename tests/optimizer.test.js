@@ -56,3 +56,19 @@ test('precomputed metric context produces the same score', async () => {
   const b=scoreModels(img,model,{context:createMetricContext(img)});
   assert.ok(Math.abs(a.score-b.score)<1e-9);
 });
+
+test('chooser does not punish clean column encoding merely for being vertical', () => {
+  const best=chooseBestCandidate([
+    {id:'col',quality:99.20,bits:8,encoder:'strips-columns',resolution:512,payloadBytes:900000},
+    {id:'row',quality:99.00,bits:8,encoder:'strips-rows',resolution:512,payloadBytes:900000}
+  ],1280000);
+  assert.equal(best.id,'col');
+});
+
+test('chooser prefers a clean candidate over a slightly higher-scoring high-artifact candidate',()=>{
+  const best=chooseBestCandidate([
+    {id:'melt',quality:94.5,baseQuality:97.0,artifactPenalty:0.9,bits:8,resolution:256,payloadBytes:1_240_000},
+    {id:'clean',quality:92.8,baseQuality:93.0,artifactPenalty:0.08,bits:8,resolution:256,payloadBytes:1_210_000}
+  ],1_277_952);
+  assert.equal(best.id,'clean');
+});
