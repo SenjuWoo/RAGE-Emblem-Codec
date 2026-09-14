@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { VERSION } from '../src/version.js';
 import { generateConsoleCode } from '../src/codec/console-code.js';
 
@@ -35,4 +38,15 @@ test('UI exposes transparency guard and artifact diagnostics', () => {
   assert.match(html, /id="artifactMetric"/);
   assert.match(main, /alphaThreshold:Number\(els\.alphaThreshold\.value\)/);
   assert.match(main, /artifactMetric/);
+});
+
+test('portable release archive is a real ZIP', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const zipName = `rage-emblem-codec-${VERSION}-portable.zip`;
+  const run = spawnSync(process.execPath, ['tools/package-release.mjs'], { cwd: root, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const bytes = fs.readFileSync(`${root}release/${zipName}`);
+  assert.equal(bytes.subarray(0, 4).toString('latin1'), 'PK\u0003\u0004', 'a tar named .zip would fail every user unzip');
+  const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+  assert.equal(fs.readFileSync(`${root}release/SHA256SUMS.txt`, 'utf8').trim(), `${sha}  ${zipName}`);
 });
