@@ -12,14 +12,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ShugokiFable/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/ShugokiFable/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a8ff3e?labelColor=0d0f11" alt="MIT License"></a>
-  <a href="https://github.com/ShugokiFable/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.2-53d7ff?labelColor=0d0f11" alt="v0.1.2"></a>
+  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.2-53d7ff?labelColor=0d0f11" alt="v0.1.2"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-8f9aa6?labelColor=0d0f11" alt="Node 20+">
 </p>
 
 <p align="center">
-  <a href="https://shugokifable.github.io/RAGE-Emblem-Codec/">Live demo</a>
+  <a href="https://senjuwoo.github.io/RAGE-Emblem-Codec/">Live demo</a>
   ·
   <a href="#run">Run locally</a>
   ·
@@ -71,7 +71,7 @@ It grew out of [Emblem Helper 1.1 by Flashback-GTA](https://github.com/search?q=
 Node.js 20 or newer. No other runtime dependencies for the portable web app.
 
 ```powershell
-git clone https://github.com/ShugokiFable/RAGE-Emblem-Codec.git
+git clone https://github.com/SenjuWoo/RAGE-Emblem-Codec.git
 cd RAGE-Emblem-Codec
 npm install
 npm run serve

@@ -7,6 +7,8 @@
 - Encoded preview now injects `viewBox="0 0 512 512"` so the 512 SVG scales to the card instead of cropping or sitting at 1 CSS pixel per user unit
 - Original pane paints the same 512×512 letterboxed reference the codec scores against (`resizeFitImage`), so the two panes share framing
 - Advanced **Strip direction** can lock search to rows or columns (Emblem Helper-style). Auto still tries both.
+- Recaptured README hero / empty / mobile screenshots at v0.1.2
+- Live demo URL is `https://senjuwoo.github.io/RAGE-Emblem-Codec/` after the GitHub transfer
 
 ### Tests
 

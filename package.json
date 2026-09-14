@@ -5,13 +5,13 @@
   "type": "module",
   "license": "MIT",
   "description": "Local-first GTA Online crew-emblem optimizer that searches Rockstar-compatible SVG/layer encodings to maximize visual fidelity under the 1,280,000-byte request budget.",
-  "homepage": "https://github.com/ShugokiFable/RAGE-Emblem-Codec#readme",
+  "homepage": "https://senjuwoo.github.io/RAGE-Emblem-Codec/",
   "bugs": {
-    "url": "https://github.com/ShugokiFable/RAGE-Emblem-Codec/issues"
+    "url": "https://github.com/SenjuWoo/RAGE-Emblem-Codec/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ShugokiFable/RAGE-Emblem-Codec.git"
+    "url": "git+https://github.com/SenjuWoo/RAGE-Emblem-Codec.git"
   },
   "author": "ShugokiFable",
   "engines": {
