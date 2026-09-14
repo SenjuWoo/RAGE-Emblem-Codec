@@ -27,6 +27,15 @@ test('optimizer rejects over-budget candidates',()=>{
   assert.equal(best.quality,90);
 });
 
+test('chooser prefers 8-bit rows over 4-bit columns when the metric gap is small', () => {
+  const best = chooseBestCandidate([
+    { id: 'c4', quality: 99.42, bits: 4, encoder: 'strips-columns', resolution: 512, payloadBytes: 1_262_384 },
+    { id: 'r8', quality: 98.96, bits: 8, encoder: 'strips-rows', resolution: 512, payloadBytes: 1_259_456 }
+  ], 1_277_952);
+  assert.equal(best.id, 'r8');
+  assert.equal(best.bits, 8);
+});
+
 test('pareto frontier removes candidates that are both larger and worse',()=>{
   const p=paretoFrontier([
     {quality:90,payloadBytes:900,id:'a'},

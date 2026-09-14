@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeImage } from '../src/codec/model.js';
 import { resizeImage } from '../src/codec/resample.js';
-import { searchImage } from '../src/codec/search.js';
+import { searchImage, STRIP_LEVELS } from '../src/codec/search.js';
 
 function solid(w,h,c) {
   const d=new Uint8ClampedArray(w*h*4);
@@ -50,6 +50,47 @@ test('custom quality target stops search once a fitting candidate reaches the re
   assert.equal(result.targetReached,true);
   assert.equal(result.stoppedAtLimit,false);
   assert.equal(result.evaluated,1);
+});
+
+test('search does not descend to 4-bit after an 8-bit candidate already fits', () => {
+  const d = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const v = (x * 11 + y * 5 + ((x * y) % 7)) & 255;
+      d.set([v, 40 + (y % 80), 90, 255], (y * 32 + x) * 4);
+    }
+  }
+  const image = makeImage(32, 32, d);
+  const result = searchImage(image, {
+    preset: 'custom',
+    budget: 1_280_000,
+    reserve: 0,
+    resolutions: [16],
+    bits: [8, 4],
+    encoderFamilies: ['strips'],
+    precision: 3,
+    qualityTarget: null,
+    maxCandidates: 80
+  });
+  assert.ok(result.best, 'expected a feasible winner');
+  assert.ok(result.candidates.some(c => c.bits === 8 && c.payloadBytes <= result.effectiveBudget));
+  assert.equal(result.candidates.some(c => c.bits === 4), false, '4-bit must not run after 8-bit already fits');
+  assert.equal(result.best.bits, 8);
+});
+
+test('strip levels try high-tolerance merge-2 before merge-3 so row tearing is a last resort', () => {
+  const merge2 = STRIP_LEVELS.findIndex(([g, m]) => g === 18 && m === 2);
+  const merge3 = STRIP_LEVELS.findIndex(([, m]) => m >= 3);
+  assert.ok(merge2 >= 0, 'missing [18,2] strip level');
+  assert.ok(merge3 >= 0);
+  assert.ok(merge2 < merge3, 'merge-2 at g18 must run before merge-3');
+});
+
+test('fast preset does not include 4-bit RGB in the default sweep', () => {
+  const image = solid(16, 16, [20, 180, 90, 255]);
+  const result = searchImage(image, { preset: 'fast', budget: 1, reserve: 0, encoderFamilies: ['strips'], maxCandidates: 24 });
+  const bits = [...new Set(result.candidates.map(c => c.bits))].sort((a, b) => b - a);
+  assert.equal(bits.includes(4), false, `fast bits were ${bits.join(',')}`);
 });
 
 test('stripOrientations rows-only never evaluates column strips', () => {

@@ -1,8 +1,18 @@
+function visibleQuality(c) {
+  const bits = Number.isFinite(c.bits) ? c.bits : 8;
+  const columnTax = c.encoder === 'strips-columns' ? 0.35 : 0;
+  return c.quality - Math.max(0, 8 - bits) * 0.22 - columnTax;
+}
+
 export function chooseBestCandidate(candidates, budget) {
   const feasible = candidates.filter(c => c.payloadBytes <= budget);
   if (!feasible.length) return null;
   return [...feasible].sort((a, b) =>
-    b.quality - a.quality || b.payloadBytes - a.payloadBytes || String(a.id ?? '').localeCompare(String(b.id ?? ''))
+    visibleQuality(b) - visibleQuality(a) ||
+    (b.bits ?? 8) - (a.bits ?? 8) ||
+    (b.resolution ?? 0) - (a.resolution ?? 0) ||
+    b.payloadBytes - a.payloadBytes ||
+    String(a.id ?? '').localeCompare(String(b.id ?? ''))
   )[0];
 }
 

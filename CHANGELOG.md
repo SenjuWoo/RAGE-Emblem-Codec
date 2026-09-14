@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.3 — 2026-09-14
+
+### Codec
+
+- Fast search no longer sweeps 4-bit RGB. Once an 8-bit candidate fits, lower bit depths are not searched.
+- Winner ranking penalizes posterized bit depths and column scanlines, so a 4-bit column encode cannot beat a slightly lower-scoring 8-bit row encode.
+- Sample emblem Fast search now wins **512×512 8-bit rows** (`p3-g18-m2`, quality 99.72) instead of 4-bit columns
+- Strip search tries merge-2 at high gradient tolerance before merge-3 so adjacent-row tearing is a last resort
+
+### Tests
+
+- 62 automated tests
+
 ## 0.1.2 — 2026-09-14
 
 ### App

@@ -4,8 +4,10 @@ import { encodeTiles } from './tile-encoder.js';
 import { createMetricContext, scoreModels } from './metrics.js';
 import { chooseBestCandidate, paretoFrontier } from './optimizer.js';
 
-const STRIP_LEVELS = [
-  [0,0],[1,0],[2,0],[4,0],[2,2],[6,0],[4,2],[8,2],[12,3],[18,4],[28,6],[40,8]
+export const STRIP_LEVELS = [
+  [0,0],[1,0],[2,0],[4,0],[2,2],[6,0],[4,2],[8,2],
+  [18,2],
+  [12,3],[18,4],[28,6],[40,8]
 ];
 const TILE_LEVELS = [0,2,4,6,10,16,24,36,52,72];
 
@@ -16,7 +18,7 @@ function defaultsForPreset(preset, maxSize) {
     bits: [8,7,6,5,4], encoderFamilies: ['strips','tiles'], maxCandidates: 1800
   };
   return {
-    resolutions: clamp([64,128,256]), bits: [8,6,4], encoderFamilies: ['strips','tiles'], maxCandidates: 300
+    resolutions: clamp([64,128,256]), bits: [8,6], encoderFamilies: ['strips','tiles'], maxCandidates: 300
   };
 }
 
@@ -109,30 +111,34 @@ export function searchImage(reference, options = {}, onProgress = null) {
   ).filter(o => o === 'rows' || o === 'columns');
   const stripOrientations = orientations.length ? orientations : ['rows', 'columns'];
 
-  // Search cheap strip candidates first. Within each compression level, sweep every
-  // requested resolution before spending work on another precision/bit-depth pair.
-  // This prevents a candidate cap from being consumed entirely at one resolution.
-  outer:
-  for (let level = 0; level < STRIP_LEVELS.length && families.includes('strips'); level++) {
-    const [gradientTolerance, mergeTolerance] = STRIP_LEVELS[level];
-    for (const precision of precisions) {
-      for (const bits of bitDepths) {
-        for (const orientation of stripOrientations) {
-          for (const resolution of resolutions) {
-            if (stopped) break outer;
-            const key = `${resolution}:${bits}:${precision}:${orientation}`;
-            if (stripDone.has(key)) continue;
-            const img = imageFor(resolution);
-            const result = encodeStrips(img, {
-              orientation, precision, bits, gradientTolerance, mergeTolerance,
-              preserveEdges: true, edgeThreshold
-            });
-            const c = evaluate(result, {
-              encoder: `strips-${orientation}`, resolution, bits,
-              variant: `p${precision}-g${gradientTolerance}-m${mergeTolerance}`,
-              settings: { orientation, precision, bits, gradientTolerance, mergeTolerance, edgeThreshold }
-            });
-            if (c && c.payloadBytes <= effectiveBudget) stripDone.add(key);
+  // Colour depth is outer: once 8-bit already fits, 4-bit posterization must not
+  // outrank it on a metric that under-penalizes banding. Within a bit depth,
+  // sweep every resolution before another compression level so a cap cannot
+  // burn entirely on one size.
+  if (families.includes('strips')) {
+    bitOuter:
+    for (const bits of bitDepths) {
+      if (bestFull && (bestFull.bits ?? 8) > bits) break bitOuter;
+      for (let level = 0; level < STRIP_LEVELS.length; level++) {
+        const [gradientTolerance, mergeTolerance] = STRIP_LEVELS[level];
+        for (const precision of precisions) {
+          for (const orientation of stripOrientations) {
+            for (const resolution of resolutions) {
+              if (stopped) break bitOuter;
+              const key = `${resolution}:${bits}:${precision}:${orientation}`;
+              if (stripDone.has(key)) continue;
+              const img = imageFor(resolution);
+              const result = encodeStrips(img, {
+                orientation, precision, bits, gradientTolerance, mergeTolerance,
+                preserveEdges: true, edgeThreshold
+              });
+              const c = evaluate(result, {
+                encoder: `strips-${orientation}`, resolution, bits,
+                variant: `p${precision}-g${gradientTolerance}-m${mergeTolerance}`,
+                settings: { orientation, precision, bits, gradientTolerance, mergeTolerance, edgeThreshold }
+              });
+              if (c && c.payloadBytes <= effectiveBudget) stripDone.add(key);
+            }
           }
         }
       }
@@ -142,10 +148,11 @@ export function searchImage(reference, options = {}, onProgress = null) {
   // Adaptive tiling is more expensive, so only search it after the strip baseline.
   if (!stopped && families.includes('tiles')) {
     tileOuter:
-    for (let level = 0; level < TILE_LEVELS.length; level++) {
-      const modelTolerance = TILE_LEVELS[level];
-      for (const precision of precisions) {
-        for (const bits of bitDepths) {
+    for (const bits of bitDepths) {
+      if (bestFull && (bestFull.bits ?? 8) > bits) break tileOuter;
+      for (let level = 0; level < TILE_LEVELS.length; level++) {
+        const modelTolerance = TILE_LEVELS[level];
+        for (const precision of precisions) {
           for (const minTile of tileSizes) {
             for (const resolution of resolutions) {
               if (stopped) break tileOuter;
