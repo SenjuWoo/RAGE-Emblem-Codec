@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+src-tauri/target/
+.impeccable/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.env
+.env.*
+Old vs New Examples/
+RAGE Emblem Codec v0.1.1 — GitHub Project Handoff.md

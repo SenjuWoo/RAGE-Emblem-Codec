@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RAGE Emblem Codec">
+  <rect width="64" height="64" rx="14" fill="#a8ff3e"/>
+  <path fill="#0b0e08" transform="translate(10 8) skewX(-6)" d="M8 6h20.5c9.4 0 16.5 6.2 16.5 15.2 0 7.2-4.6 12.8-11.6 14.5L48 58h-12.2L24.6 38.2H18V58H8V6zm10 8.2V30h9.4c5.2 0 8.4-3 8.4-7.9 0-4.8-3.2-7.9-8.4-7.9H18z"/>
+</svg>

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0d0f11" />
+  <meta name="description" content="Local-first GTA Online crew emblem optimizer. Searches Rockstar-compatible SVG encodings to maximize quality under the 1,280,000-byte request budget." />
+  <meta property="og:title" content="RAGE Emblem Codec" />
+  <meta property="og:description" content="Push GTA Online crew emblems to the byte limit. Local-first perceptual search under Rockstar's 1,280,000-byte request budget." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="./docs/images/sample-crew-emblem.png" />
+  <title>RAGE Emblem Codec</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./src/styles.css" />
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <p id="toast" class="toast" hidden role="status"></p>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="22" height="22" focusable="false">
+          <path fill="currentColor" transform="translate(10 8) skewX(-6)" d="M8 6h20.5c9.4 0 16.5 6.2 16.5 15.2 0 7.2-4.6 12.8-11.6 14.5L48 58h-12.2L24.6 38.2H18V58H8V6zm10 8.2V30h9.4c5.2 0 8.4-3 8.4-7.9 0-4.8-3.2-7.9-8.4-7.9H18z"/>
+        </svg>
+      </div>
+      <div>
+        <h1>RAGE Emblem Codec</h1>
+        <p>Rockstar-compatible perceptual optimizer</p>
+      </div>
+    </div>
+    <div class="compat-pill"><span></span> Strict compatibility mode</div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="control-panel panel">
+      <section>
+        <h2>Source</h2>
+        <button id="importBtn" class="button primary wide" type="button">Import image</button>
+        <button id="sampleBtn" class="button ghost wide" type="button">Load sample emblem</button>
+        <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop an image or press Enter to import">
+          <div class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 4v12M7 9l5-5 5 5"/>
+              <path d="M5 18h14"/>
+            </svg>
+          </div>
+          <strong>Drop PNG, JPG or WEBP</strong>
+          <span>Centered into a transparent 512 × 512 working canvas</span>
+        </div>
+        <div id="fileMeta" class="file-meta">No image loaded</div>
+      </section>
+
+      <section>
+        <h2>Search</h2>
+        <div class="segmented" role="group" aria-label="Search preset">
+          <label><input type="radio" name="preset" value="fast" checked><span>Fast</span></label>
+          <label><input type="radio" name="preset" value="deep"><span>Deep</span></label>
+        </div>
+        <div class="field-row">
+          <label>Budget <input id="budget" type="number" value="1280000" min="10000" step="1000"></label>
+          <label>Reserve <input id="reserve" type="number" value="2048" min="0" step="256"></label>
+        </div>
+        <button id="runBtn" class="button action wide" type="button" disabled>Auto Max Quality</button>
+        <button id="cancelBtn" class="button ghost wide" type="button" disabled>Cancel search</button>
+        <p class="kbd-hint">Ctrl+O import · Ctrl+Enter search · Esc cancel</p>
+      </section>
+
+      <details>
+        <summary>Advanced search controls</summary>
+        <div class="advanced-grid">
+          <label class="check-row"><input id="useStrips" type="checkbox" checked> Legacy+ strip encoder</label>
+          <label class="check-row"><input id="useTiles" type="checkbox" checked> Adaptive tile encoder</label>
+          <label>Geometry precision
+            <select id="precision"><option value="auto" selected>Auto (5 → 4 → 3)</option><option value="5">5 decimals</option><option value="4">4 decimals</option><option value="3">3 decimals</option></select>
+          </label>
+          <label>Resize smoothing
+            <select id="smoothing"><option value="true" selected>On</option><option value="false">Off</option></select>
+          </label>
+          <label>Hard-edge threshold <output id="edgeOut">96</output>
+            <input id="edgeThreshold" type="range" min="32" max="180" value="96" step="4">
+          </label>
+          <label>Adaptive region fuse
+            <input id="maxRegions" type="number" value="4500" min="250" max="20000" step="250">
+          </label>
+        </div>
+      </details>
+    </aside>
+
+    <section id="workspace" class="workspace" tabindex="-1">
+      <div class="preview-grid">
+        <article class="preview-card panel">
+          <header><h2>Original</h2><span>512 reference</span></header>
+          <div class="checker preview-stage"><canvas id="sourceCanvas" width="512" height="512"></canvas><div id="sourceEmpty" class="empty-state">Import an emblem image</div></div>
+        </article>
+        <article class="preview-card panel">
+          <header><h2>Encoded</h2><span id="encodedTag">Waiting</span></header>
+          <div id="encodedStage" class="checker preview-stage"><div id="encodedSvg"></div><div id="encodedEmpty" class="empty-state">Run Auto Max Quality</div></div>
+        </article>
+      </div>
+
+      <section class="panel telemetry">
+        <div class="telemetry-head">
+          <div><h2>Optimization run</h2><p id="runStatus" aria-live="polite">Idle</p></div>
+          <strong id="progressPct">0%</strong>
+        </div>
+        <div class="progress-track" aria-hidden="true"><div id="progressBar"></div></div>
+        <div id="candidateLog" class="candidate-log"><span>No candidates evaluated yet.</span></div>
+      </section>
+
+      <section class="panel frontier-panel">
+        <header><div><h2>Quality / payload frontier</h2><p>Only non-dominated feasible candidates survive here.</p></div></header>
+        <div id="frontierChart" class="frontier-chart"><span>Run an optimization to build the frontier.</span></div>
+      </section>
+    </section>
+
+    <aside class="result-panel panel">
+      <section>
+        <h2>Winning candidate</h2>
+        <div class="score-ring" id="scoreRing"><div><strong id="qualityScore">--</strong><span>quality</span></div></div>
+        <div class="metric-list">
+          <div><span>Payload</span><strong id="payloadMetric">--</strong></div>
+          <div><span>Budget use</span><strong id="budgetMetric">--</strong></div>
+          <div><span>Layers</span><strong id="layersMetric">--</strong></div>
+          <div><span>Encoder</span><strong id="encoderMetric">--</strong></div>
+          <div><span>Working res.</span><strong id="resMetric">--</strong></div>
+          <div><span>RGB depth</span><strong id="bitsMetric">--</strong></div>
+          <div><span>Precision</span><strong id="precisionMetric">--</strong></div>
+        </div>
+      </section>
+
+      <section class="export-section">
+        <h2>Export</h2>
+        <button id="generateBtn" class="button primary wide" type="button" disabled>Generate Rockstar code</button>
+        <button id="copyBtn" class="button ghost wide" type="button" disabled>Copy console code</button>
+        <button id="svgBtn" class="button ghost wide" type="button" disabled>Download SVG</button>
+        <button id="reportBtn" class="button ghost wide" type="button" disabled>Download report</button>
+        <label class="sr-only" for="consoleCode">Generated Rockstar console code</label>
+        <textarea id="consoleCode" readonly spellcheck="false" placeholder="Generated console code appears here."></textarea>
+        <p class="export-note">The exported code re-checks the exact request-body byte count on the Rockstar emblem editor before sending. Nothing leaves this machine until you paste it there.</p>
+      </section>
+    </aside>
+  </main>
+
+  <footer><span id="appVersion">RAGE Emblem Codec</span> · local-first · no Rockstar credentials stored</footer>
+</body>
+</html>
