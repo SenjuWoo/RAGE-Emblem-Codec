@@ -74,6 +74,13 @@
         <div class="advanced-grid">
           <label class="check-row"><input id="useStrips" type="checkbox" checked> Legacy+ strip encoder</label>
           <label class="check-row"><input id="useTiles" type="checkbox" checked> Adaptive tile encoder</label>
+          <label>Strip direction
+            <select id="stripOrientation">
+              <option value="auto" selected>Auto (rows + columns)</option>
+              <option value="rows">Rows only</option>
+              <option value="columns">Columns only</option>
+            </select>
+          </label>
           <label>Geometry precision
             <select id="precision"><option value="auto" selected>Auto (5 → 4 → 3)</option><option value="5">5 decimals</option><option value="4">4 decimals</option><option value="3">3 decimals</option></select>
           </label>

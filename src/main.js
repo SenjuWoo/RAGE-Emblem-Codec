@@ -1,10 +1,12 @@
 import { generateConsoleCode } from './codec/console-code.js';
 import { fitWithinMaxSide } from './codec/source-utils.js';
+import { withPreviewViewBox } from './codec/preview-svg.js';
+import { resizeFitImage } from './codec/resample.js';
 import { VERSION } from './version.js';
 
 const $ = id => document.getElementById(id);
 const els = Object.fromEntries([
-  'importBtn','sampleBtn','fileInput','dropZone','fileMeta','runBtn','cancelBtn','budget','reserve','useStrips','useTiles','precision','smoothing','edgeThreshold','edgeOut','maxRegions',
+  'importBtn','sampleBtn','fileInput','dropZone','fileMeta','runBtn','cancelBtn','budget','reserve','useStrips','useTiles','stripOrientation','precision','smoothing','edgeThreshold','edgeOut','maxRegions',
   'sourceCanvas','sourceEmpty','encodedSvg','encodedEmpty','encodedTag','runStatus','progressPct','progressBar','candidateLog','frontierChart',
   'scoreRing','qualityScore','payloadMetric','budgetMetric','layersMetric','encoderMetric','resMetric','bitsMetric','precisionMetric','generateBtn','copyBtn','svgBtn','reportBtn','consoleCode',
   'toast','appVersion'
@@ -58,17 +60,16 @@ function resetResult() {
   els.progressBar.style.transform='scaleX(0)'; els.progressPct.textContent='0%'; els.runStatus.textContent='Idle';
 }
 
-function drawSourceBitmap(bitmap, fileName) {
-  const canvas = els.sourceCanvas;
-  const ctx = canvas.getContext('2d', { willReadFrequently:true });
-  ctx.clearRect(0,0,512,512);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  const scale = Math.min(512 / bitmap.width, 512 / bitmap.height);
-  const w = bitmap.width * scale, h = bitmap.height * scale;
-  const x = (512 - w) / 2, y = (512 - h) / 2;
-  ctx.drawImage(bitmap, x, y, w, h);
+function paintReferencePreview() {
+  if (!sourceImage || !els.sourceCanvas) return;
+  const smoothing = els.smoothing?.value !== 'false';
+  const preview = resizeFitImage(sourceImage, 512, smoothing);
+  const ctx = els.sourceCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.clearRect(0, 0, 512, 512);
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(preview.data), 512, 512), 0, 0);
+}
 
+function drawSourceBitmap(bitmap, fileName) {
   // Keep the source at native resolution whenever practical. The old UI always
   // pre-smoothed everything to 512 first, which destroyed pixel-art edges before
   // the encoder's own smoothing option could do anything.
@@ -82,6 +83,7 @@ function drawSourceBitmap(bitmap, fileName) {
   const sourceData = sourceCtx.getImageData(0,0,capped.width,capped.height);
   sourceImage = { width:capped.width, height:capped.height, data:new Uint8ClampedArray(sourceData.data) };
 
+  paintReferencePreview();
   els.sourceEmpty.hidden = true;
   const capNote = capped.scale < 1 ? ` · working source ${capped.width}×${capped.height}` : '';
   els.fileMeta.textContent = `${fileName} · ${bitmap.width}×${bitmap.height}${capNote}`;
@@ -114,6 +116,9 @@ function searchOptions() {
     budget:Number(els.budget.value) || 1280000,
     reserve:Number(els.reserve.value) || 0,
     encoderFamilies:families.length ? families : ['strips'],
+    stripOrientations: els.stripOrientation?.value === 'columns' ? ['columns']
+      : els.stripOrientation?.value === 'rows' ? ['rows']
+      : ['rows', 'columns'],
     precision:els.precision.value === 'auto' ? 'auto' : Number(els.precision.value),
     smoothing:els.smoothing.value === 'true',
     edgeThreshold:Number(els.edgeThreshold.value),
@@ -165,7 +170,7 @@ function showBest(result, opts) {
     return;
   }
   els.runStatus.textContent=`Complete · ${result.evaluated} candidate attempts${result.stoppedAtLimit?' · search cap reached':''}`;
-  els.encodedSvg.innerHTML=best.result.svg;
+  els.encodedSvg.innerHTML=withPreviewViewBox(best.result.svg);
   els.encodedEmpty.hidden=true;
   els.encodedTag.textContent=`${best.encoder} / ${best.variant}`;
   els.qualityScore.textContent=best.quality.toFixed(2);
@@ -236,6 +241,7 @@ for(const type of ['dragleave','drop']) els.dropZone.addEventListener(type,e=>{e
 els.dropZone.addEventListener('drop',e=>loadFile(e.dataTransfer.files?.[0]));
 els.runBtn.onclick=startSearch; els.cancelBtn.onclick=cancelSearch;
 els.edgeThreshold.oninput=()=>els.edgeOut.textContent=els.edgeThreshold.value;
+els.smoothing?.addEventListener('change', () => { if (sourceImage) paintReferencePreview(); });
 
 document.addEventListener('keydown', e => {
   const tag = e.target?.tagName;

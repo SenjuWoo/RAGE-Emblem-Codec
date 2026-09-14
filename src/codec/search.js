@@ -103,6 +103,11 @@ export function searchImage(reference, options = {}, onProgress = null) {
   const stripDone = new Set();
   const tileDone = new Set();
   const tileSizes = preset === 'deep' ? [1,2,4] : [2,4];
+  const orientations = (options.stripOrientations?.length
+    ? options.stripOrientations
+    : ['rows', 'columns']
+  ).filter(o => o === 'rows' || o === 'columns');
+  const stripOrientations = orientations.length ? orientations : ['rows', 'columns'];
 
   // Search cheap strip candidates first. Within each compression level, sweep every
   // requested resolution before spending work on another precision/bit-depth pair.
@@ -112,7 +117,7 @@ export function searchImage(reference, options = {}, onProgress = null) {
     const [gradientTolerance, mergeTolerance] = STRIP_LEVELS[level];
     for (const precision of precisions) {
       for (const bits of bitDepths) {
-        for (const orientation of ['rows','columns']) {
+        for (const orientation of stripOrientations) {
           for (const resolution of resolutions) {
             if (stopped) break outer;
             const key = `${resolution}:${bits}:${precision}:${orientation}`;

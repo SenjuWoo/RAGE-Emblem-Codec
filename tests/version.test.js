@@ -19,3 +19,10 @@ test('version surfaces stay in lockstep', () => {
 test('empty-state hidden rule beats display:grid', () => {
   assert.match(css, /\.empty-state\[hidden\]\s*\{\s*display:\s*none/);
 });
+
+test('encoded preview SVG is forced to fill the square stage', () => {
+  assert.match(css, /#encodedSvg svg\s*\{/);
+  const main = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(main, /withPreviewViewBox\(best\.result\.svg\)/);
+  assert.match(main, /paintReferencePreview/);
+});

@@ -52,6 +52,24 @@ test('custom quality target stops search once a fitting candidate reaches the re
   assert.equal(result.evaluated,1);
 });
 
+test('stripOrientations rows-only never evaluates column strips', () => {
+  const d=new Uint8ClampedArray(16*16*4);
+  for(let y=0;y<16;y++) for(let x=0;x<16;x++) d.set([x*16,y*16,80,255],(y*16+x)*4);
+  const image=makeImage(16,16,d);
+  const both=searchImage(image,{
+    preset:'custom',budget:1280000,reserve:0,resolutions:[8],bits:[8],
+    encoderFamilies:['strips'],precision:3,maxCandidates:8
+  });
+  assert.ok(both.candidates.some(c=>c.encoder==='strips-columns'), 'control: default search must still try columns');
+  const result=searchImage(image,{
+    preset:'custom',budget:1280000,reserve:0,resolutions:[8],bits:[8],
+    encoderFamilies:['strips'],stripOrientations:['rows'],precision:3,maxCandidates:8
+  });
+  assert.ok(result.candidates.length);
+  assert.equal(result.candidates.some(c=>c.encoder==='strips-columns'), false);
+  assert.equal(result.best?.encoder, 'strips-rows');
+});
+
 test('fast preset uses a near-lossless default target while deep remains untargeted', () => {
   const image=solid(32,32,[80,120,160,255]);
   const fast=searchImage(image,{preset:'fast',budget:1280000,reserve:0,precision:3,encoderFamilies:['strips','tiles'],bits:[8],resolutions:[32],maxCandidates:300});

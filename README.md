@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/ShugokiFable/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/ShugokiFable/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a8ff3e?labelColor=0d0f11" alt="MIT License"></a>
-  <a href="https://github.com/ShugokiFable/RAGE-Emblem-Codec/releases/tag/v0.1.1"><img src="https://img.shields.io/badge/release-v0.1.1-53d7ff?labelColor=0d0f11" alt="v0.1.1"></a>
+  <a href="https://github.com/ShugokiFable/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.2-53d7ff?labelColor=0d0f11" alt="v0.1.2"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-8f9aa6?labelColor=0d0f11" alt="Node 20+">
 </p>
 
@@ -56,7 +56,7 @@ It grew out of [Emblem Helper 1.1 by Flashback-GTA](https://github.com/search?q=
 - Premultiplied-alpha resampling (no colored transparency halos)
 - Edge-weighted perceptual scoring, Pareto frontier, Fast and Deep modes
 - Runtime request-size guard in the generated Social Club console code
-- 50 automated tests (48 codec tests plus version / UI guards)
+- 58 automated tests (codec, search, preview scaling, version / UI guards)
 - Local-first: artwork never needs to leave your machine
 - Tauri 2 desktop scaffold (optional; no fabricated Windows `.exe` is shipped)
 
@@ -90,6 +90,12 @@ Do not open `index.html` as a `file://` page. The worker and sample image need t
 3. Paste the snippet into the browser console.
 4. The snippet reads the live editor token/hash, measures the real JSON body, and **aborts without sending** if it is over budget.
 
+### Preview vs console / in-game
+
+Original is the 512×512 letterboxed reference the codec scores against. Encoded is the same 512×512 SVG the console snippet uploads; the card only *displays* it (a viewBox is added in the page, not in the Rockstar payload).
+
+Vertical scanlines mean the winner was a **column-strip** encode, usually below 512 working resolution. Those bands are in the SVG. The Social Club editor and in-game emblems rasterize that file, so they show — more on a large crew-page emblem, less on a tiny player-list icon. Advanced → **Strip direction → Rows only** forces the old Helper default and removes the vertical bands.
+
 ## Search modes
 
 | Mode | Behavior |
@@ -100,9 +106,9 @@ Do not open `index.html` as a `file://` page. The worker and sample image need t
 
 ## Benchmarks
 
-Deterministic synthetic artwork, not a claim about every photo. Quality is the v0.1.1 edge-weighted proxy (`100` = exact under that metric).
+Deterministic synthetic artwork, not a claim about every photo. Quality is the edge-weighted proxy (`100` = exact under that metric). Scorer unchanged from the first public benches.
 
-| Budget | Legacy-style | RAGE v0.1.1 | Quality | Payload |
+| Budget | Legacy-style | RAGE v0.1.2 | Quality | Payload |
 | ---: | --- | --- | ---: | ---: |
 | 1,280,000 B | 98.782 @ 536,060 B | **99.9995 @ 1,276,380 B** | **+1.218** | +740,320 B |
 | 120,000 B | 53.634 @ 116,928 B | **55.210 @ 84,804 B** | **+1.577** | **−32,124 B** |
@@ -149,7 +155,7 @@ The bundle target is NSIS only. This repository does **not** ship a prebuilt `.e
 
 ## Compatibility boundary
 
-v0.1.1 Strict mode uses the known-safe subset:
+v0.1.2 Strict mode uses the known-safe subset:
 
 - legacy rectangle slug
 - transformed SVG paths
@@ -162,11 +168,11 @@ Not enabled until proven against the live editor: `<use>`, arbitrary primitives,
 
 Verified in this tree:
 
-- 50 automated tests
+- 58 automated tests
 - static frontend build
 - 1,280,000-byte and 120,000-byte benchmarks
 - runtime request-size guard tests
-- independent SVG geometry checks from the v0.1.1 audit
+- independent SVG geometry checks from the original geometry audit
 
 Not claimed:
 

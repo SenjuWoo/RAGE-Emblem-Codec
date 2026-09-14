@@ -1,6 +1,6 @@
 [package]
 name = "rage-emblem-codec"
-version = "0.1.1"
+version = "0.1.2"
 description = "Perceptual GTA Online emblem optimizer"
 authors = ["RAGE Emblem Codec contributors"]
 edition = "2021"
