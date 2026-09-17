@@ -59,6 +59,8 @@ try {
   if (missing.status !== 404) throw new Error(`missing file should 404, got ${missing.status}`);
   const escaped = await get('/..%2F..%2F..%2FWindows/win.ini');
   if (escaped.status === 200) throw new Error('static server served an escaped path');
+  const malformed = await get('/%ZZ');
+  if (malformed.status !== 400) throw new Error(`malformed percent-encoding should 400, got ${malformed.status}`);
   console.log('serve smoke ok');
   shutdown();
   process.exit(0);

@@ -7,7 +7,9 @@ function summary(candidate) {
   return {
     id:candidate.id, encoder:candidate.encoder, resolution:candidate.resolution,
     bits:candidate.bits, variant:candidate.variant, quality:candidate.quality,
-    payloadBytes:candidate.payloadBytes, layers:candidate.layers
+    payloadBytes:candidate.payloadBytes, layers:candidate.layers,
+    artifactPenalty:candidate.artifactPenalty,
+    transparentLeakage:candidate.transparentLeakage, directionalArtifact:candidate.directionalArtifact
   };
 }
 

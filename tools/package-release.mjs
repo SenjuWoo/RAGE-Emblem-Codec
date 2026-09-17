@@ -6,17 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { VERSION } from '../src/version.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = path.join(root, 'release');
+const outDir = path.resolve(process.argv[2] || path.join(root, 'release'));
 const zipName = `rage-emblem-codec-${VERSION}-portable.zip`;
 const zipPath = path.join(outDir, zipName);
 const sumsPath = path.join(outDir, 'SHA256SUMS.txt');
 
 fs.mkdirSync(outDir, { recursive: true });
-for (const name of fs.readdirSync(outDir)) {
-  if (name === 'SHA256SUMS.txt' || /^rage-emblem-codec-.*-portable\.zip$/i.test(name)) {
-    fs.rmSync(path.join(outDir, name), { force: true });
-  }
-}
 
 const files = [
   'index.html',
@@ -44,10 +39,10 @@ for (const rel of files) {
 // unknown suffixes and silently emits a plain tar named .zip, so pick an
 // archiver explicitly and verify the magic bytes.
 function buildZip() {
-  const winTar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  const winTar = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'tar.exe') : 'tar';
   const attempts = process.platform === 'win32'
     ? [[winTar, ['-a', '-cf', zipPath, ...files]], ['tar', ['-a', '-cf', zipPath, ...files]]]
-    : [['zip', ['-q', '-X', zipPath, ...files]], ['tar', ['-a', '-cf', zipPath, ...files]]];
+    : [['zip', ['-q', '-r', '-X', zipPath, ...files]], ['tar', ['-a', '-cf', zipPath, ...files]]];
   for (const [cmd, args] of attempts) {
     fs.rmSync(zipPath, { force: true });
     const run = spawnSync(cmd, args, { cwd: root, encoding: 'utf8' });

@@ -24,8 +24,15 @@ function insideRoot(file) {
 }
 
 const server = http.createServer((req, res) => {
-  const u = new URL(req.url, 'http://127.0.0.1');
-  const rel = decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname).replace(/^\/+/, '');
+  let rel;
+  try {
+    const u = new URL(req.url, 'http://127.0.0.1');
+    rel = decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname).replace(/^\/+/, '');
+  } catch {
+    res.writeHead(400);
+    res.end('Bad request');
+    return;
+  }
   if (!rel || rel.split(/[\\/]/).includes('..')) {
     res.writeHead(403);
     res.end('Forbidden');

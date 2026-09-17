@@ -93,7 +93,7 @@ function drawSourceBitmap(bitmap, fileName) {
 }
 
 async function loadFile(file) {
-  if (!file || !file.type.startsWith('image/')) {
+  if (!file || (file.type && !file.type.startsWith('image/'))) {
     if (file) showToast('That file is not a supported image.');
     return;
   }
@@ -115,7 +115,7 @@ function searchOptions() {
   return {
     preset,
     budget:Number(els.budget.value) || 1280000,
-    reserve:Number(els.reserve.value) || 0,
+    reserve:Math.min(Number(els.reserve.value) || 0, Number(els.budget.value) || 1280000),
     encoderFamilies:families.length ? families : ['strips'],
     stripOrientations: els.stripOrientation?.value === 'columns' ? ['columns']
       : els.stripOrientation?.value === 'rows' ? ['rows']
@@ -220,6 +220,7 @@ function startSearch() {
   };
   worker.onerror=e=>{
     setRunning(false);
+    els.progressBar.style.transform='scaleX(0)'; els.progressPct.textContent='0%';
     els.runStatus.textContent='Worker error';
     showToast(e.message || 'Search worker failed.');
     console.error(e);
@@ -230,6 +231,7 @@ function startSearch() {
 
 function cancelSearch() {
   worker?.terminate(); worker=null; setRunning(false); els.runStatus.textContent='Search cancelled';
+  els.progressBar.style.transform='scaleX(0)'; els.progressPct.textContent='0%';
 }
 
 function download(name, content, type='text/plain') {
@@ -260,6 +262,7 @@ els.smoothing?.addEventListener('change', () => { if (sourceImage) paintReferenc
 document.addEventListener('keydown', e => {
   const tag = e.target?.tagName;
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (typing && e.key !== 'Escape') return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     if (!els.importBtn.disabled) els.fileInput.click();
@@ -272,7 +275,6 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     cancelSearch();
   }
-  if (typing) return;
 });
 
 els.generateBtn.onclick=()=>{

@@ -1,18 +1,4 @@
-import { pixelAt } from './model.js';
 import { sampleStops } from './gradient.js';
-
-function regionPixel(region, x, y) {
-  if (region.type === 'solid') return region.color;
-  if (region.type === 'gradient-x') {
-    const t = region.w <= 1 ? 0 : (x - region.x) / (region.w - 1);
-    return sampleStops(region.stops, Math.max(0, Math.min(1, t)));
-  }
-  if (region.type === 'gradient-y') {
-    const t = region.h <= 1 ? 0 : (y - region.y) / (region.h - 1);
-    return sampleStops(region.stops, Math.max(0, Math.min(1, t)));
-  }
-  return [0, 0, 0, 0];
-}
 
 export function rasterizeModel(model, targetWidth = model.width, targetHeight = model.height) {
   const width = Math.max(1, Math.round(targetWidth));

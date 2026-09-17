@@ -16,6 +16,19 @@ function imageFrom(w,h,fn) {
   return makeImage(w,h,d);
 }
 
+test('custom bit depths are searched highest-first without mutating options', () => {
+  const bits = [4, 8, 6];
+  const result = searchImage(solid(16,16,[80,120,160,255]), {
+    preset:'custom', resolutions:[16], bits, reserve:0, maxCandidates:1
+  });
+  assert.equal(result.candidates[0].bits, 8);
+  assert.deepEqual(bits, [4,8,6]);
+});
+
+test('empty resolution list reports invalid search configuration', () => {
+  assert.throws(() => searchImage(solid(2,2,[0,0,0,255]), { resolutions:[] }), /resolutions.*empty/i);
+});
+
 test('resizeImage preserves a solid image and requested dimensions',()=>{
   const r=resizeImage(solid(4,4,[20,40,60,255]),8,true);
   assert.equal(r.width,8); assert.equal(r.height,8);

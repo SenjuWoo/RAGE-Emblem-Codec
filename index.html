@@ -40,7 +40,7 @@
         <h2>Source</h2>
         <button id="importBtn" class="button primary wide" type="button">Import image</button>
         <button id="sampleBtn" class="button ghost wide" type="button">Load sample emblem</button>
-        <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+        <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/*" hidden />
         <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop an image or press Enter to import">
           <div class="drop-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -49,7 +49,7 @@
             </svg>
           </div>
           <strong>Drop PNG, JPG or WEBP</strong>
-          <span>Centered into a transparent 512 × 512 working canvas</span>
+          <span>Kept at native resolution, capped at 2048 px</span>
         </div>
         <div id="fileMeta" class="file-meta">No image loaded</div>
       </section>

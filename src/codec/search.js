@@ -32,7 +32,8 @@ export function searchImage(reference, options = {}, onProgress = null) {
   const reserve = Math.max(0, Number(options.reserve ?? 2048));
   const effectiveBudget = Math.max(0, budget - reserve);
   const resolutions = [...(options.resolutions ?? d.resolutions)].sort((a,b)=>b-a);
-  const bitDepths = options.bits ?? d.bits;
+  if (!resolutions.length) throw new Error('searchImage: resolutions must not be empty');
+  const bitDepths = [...(options.bits ?? d.bits)].sort((a,b)=>b-a);
   const families = options.encoderFamilies ?? d.encoderFamilies;
   const maxCandidates = Math.max(1, Number(options.maxCandidates ?? d.maxCandidates));
   const precisionOption = options.precision ?? 'auto';
