@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a8ff3e?labelColor=0d0f11" alt="MIT License"></a>
-  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.5-53d7ff?labelColor=0d0f11" alt="v0.1.5"></a>
+  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.6-53d7ff?labelColor=0d0f11" alt="v0.1.6"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-8f9aa6?labelColor=0d0f11" alt="Node 20+">
 </p>
 
@@ -59,7 +59,7 @@ It grew out of [Emblem Helper 1.1 by Flashback-GTA](https://github.com/search?q=
 - Artifact-aware perceptual scoring: edge fidelity + transparent leakage + directional streak detection
 - Pareto frontier, Fast and Deep modes
 - Runtime request-size guard in the generated Social Club console code
-- 75 automated tests (codec, artifact regressions, search, preview scaling, version / UI guards)
+- 81 automated tests (codec, artifact regressions, search, preview scaling, version / UI guards)
 - Local-first: artwork never needs to leave your machine
 - Tauri 2 desktop scaffold (optional; no fabricated Windows `.exe` is shipped)
 
@@ -173,7 +173,7 @@ Not enabled until proven against the live editor: `<use>`, arbitrary primitives,
 
 Verified in this tree:
 
-- 75 automated tests
+- 81 automated tests
 - static frontend build
 - 1,280,000-byte and 120,000-byte benchmarks
 - runtime request-size guard tests

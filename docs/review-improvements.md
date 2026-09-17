@@ -1,4 +1,4 @@
-# Review improvements (unreleased)
+# Review improvements — v0.1.6
 
 Baseline: `8c394f0` (v0.1.5 plus ZIP regression test).
 
@@ -16,7 +16,7 @@ Review codec/search, frontend/worker, native scaffold, tooling, and documentatio
 
 ## Codec search
 
-- `searchImage` now sorts caller-provided bit depths descending before the fit-based pruning, so unsorted input such as `[8,4,6]` no longer skips never-tried depths; the caller's array is not mutated.
+- `searchImage` now sorts caller-provided bit depths descending before the fit-based pruning, so unsorted input such as `[4,8,6]` no longer starts with the lowest fidelity; the caller's array is not mutated.
 - An empty `resolutions` list now reports invalid configuration instead of returning a silent empty search.
 - Removed dead `regionPixel` from metrics; its half-cell gradient convention contradicted every live path.
 
@@ -44,4 +44,4 @@ Review codec/search, frontend/worker, native scaffold, tooling, and documentatio
 
 ## Validation
 
-Windows: 81/81 tests, integrity/syntax check (38 modules), static build, server smoke, ZIP pack + CRC, diff check all passed after edits. ZIP content extraction checks pass. Linux packaging execution not verified in this review; native Rust build not run (no default toolchain).
+Windows: 81/81 tests, integrity/syntax check (38 modules), static build, server smoke, ZIP pack + CRC, diff check all passed after edits. ZIP content extraction checks pass. The subsequent CI run on `7d336cec70c7054cf71594438f11809a5a5206e6` also passed Linux ZIP extraction checks. Native Rust build not run (no default toolchain).

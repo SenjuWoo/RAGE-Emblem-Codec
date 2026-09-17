@@ -1,4 +1,6 @@
-# RAGE Emblem Codec v0.1.5
+# RAGE Emblem Codec — v0.1.5 historical handoff
+
+Current release: **v0.1.6**. This handoff preserves the v0.1.5 design and benchmark snapshot; see [review improvements](review-improvements.md) and [changelog](../CHANGELOG.md) for subsequent fixes and validation.
 
 ## Project summary
 

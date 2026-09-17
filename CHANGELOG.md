@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.6 — 2026-09-17
+
+- Ship the post-v0.1.5 review fixes in the portable download and web app.
+- Preserve artifact diagnostics in worker progress messages.
+- Search custom bit depths highest-first and reject empty resolution lists.
+- Handle invalid URL decoding without terminating the local server.
+- Fix input shortcuts, missing-MIME image import, reserve clamping, and progress cleanup.
+- Permit same-origin sample loading in the desktop scaffold CSP. Native installer remains unverified.
+- Include nested app files in non-Windows ZIP builds; isolate packaging tests and preserve older releases.
+- Validate extracted ZIP contents; run server smoke on Windows and Linux.
+- 81 automated tests. See `docs/review-improvements.md` for review scope and limits.
+
 ## 0.1.5 — 2026-09-14
 
 ### Codec
