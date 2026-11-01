@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml"><img src="https://github.com/SenjuWoo/RAGE-Emblem-Codec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a8ff3e?labelColor=0d0f11" alt="MIT License"></a>
-  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/badge/release-v0.1.6-53d7ff?labelColor=0d0f11" alt="v0.1.6"></a>
+  <a href="https://github.com/SenjuWoo/RAGE-Emblem-Codec/releases"><img src="https://img.shields.io/github/v/release/SenjuWoo/RAGE-Emblem-Codec?label=release&color=53d7ff" alt="latest release"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-8f9aa6?labelColor=0d0f11" alt="Node 20+">
 </p>
 
