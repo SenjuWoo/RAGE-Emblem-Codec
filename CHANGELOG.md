@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (documentation only)
+
+- README rebuilt around a cover image, real app captures, real benchmark and test terminal shots, a commands table and a how-it-works diagram. No code or shipped behaviour changed.
+- App screenshots in `docs/images/` refreshed from a real `tools/capture-hero.mjs` run against v0.1.6.
+- The security-advisory link in the issue chooser now points at the current repository owner.
+
 ## 0.1.6 — 2026-09-17
 
 - Ship the post-v0.1.5 review fixes in the portable download and web app.
